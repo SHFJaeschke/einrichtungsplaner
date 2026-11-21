@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<!-- Only the pinned library, this page's own script and style, and the Supabase project are allowed. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js; style-src 'unsafe-inline'; connect-src https://vrzpazbenlngcjxkxtgp.supabase.co; img-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Einrichtungsplaner verbinden</title>
+<style>
+/* Colour tokens copied from einrichtungsplaner.html so this page looks like the app's sign-in card. */
+:root {
+  --bg: #eef0ec; --panel: #fbfcfa; --fg: #1e2622; --muted: #5d6a63; --line: #d5dad4; --field: #ffffff;
+  --accent: #2f6b57; --accent-fg: #ffffff; --warn-bg: #f6ecd2; --warn-fg: #5c4410; --danger: #a13a2a;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161b18; --panel: #1e2521; --fg: #e8ede9; --muted: #9aa8a0; --line: #343e38; --field: #161b18;
+    --accent: #6fbf9f; --accent-fg: #0f1a15; --warn-bg: #3a3118; --warn-fg: #ecd9a0; --danger: #e58c7b;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.45;
+  display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; padding: 16px;
+}
+.card {
+  width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px;
+  overflow-wrap: anywhere;
+}
+h1 { font-size: 19px; font-weight: 600; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.sub { color: var(--muted); font-size: 13px; }
+.err { color: var(--danger); font-size: 13px; }
+.who { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--field); display: flex; flex-direction: column; gap: 6px; }
+.who .k { display: block; color: var(--muted); font-size: 11.5px; }
+.who .v { display: block; font-weight: 600; }
+.mean { background: var(--warn-bg); color: var(--warn-fg); border-radius: 8px; padding: 10px 12px; }
+label.f { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--muted); }
+label.f input { font: inherit; font-size: 16px; color: var(--fg); background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 8px 9px; width: 100%; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row button { flex: 1 1 120px; }
+button.act {
+  font: inherit; color: var(--fg); background: var(--field); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; min-height: 42px; cursor: pointer;
+}
+button.act:hover { border-color: var(--accent); }
+button.act.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+button.act:disabled { opacity: .55; cursor: default; }
+button.link { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+button.link:disabled { opacity: .55; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main class="card" id="card" aria-live="polite">
+  <h1>Einrichtungsplaner verbinden</h1>
+  <p class="sub">Lade …</p>
+  <noscript><p class="sub">Diese Seite braucht JavaScript. Bitte schalte es im Browser ein und lade die Seite neu.</p></noscript>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js" integrity="sha384-A97u3Qnt9GZHURO9YJZRe7VQgGUeFzcv6I1oIGnUTxQrCxnpQMwR0/G8F2zt9abZ" crossorigin="anonymous"></script>
+<script>
+// Consent page for the OAuth 2.1 server of Supabase Auth (the "authorization path").
+// Flow as documented at https://supabase.com/docs/guides/auth/oauth-server/getting-started :
+// authorization_id from the URL -> sign in if needed -> getAuthorizationDetails -> approve or deny -> redirect_url.
+// Everything that comes from the URL or from the server is written with textContent only.
+(function () {
+  'use strict';
+  var SUPABASE_URL = 'https://vrzpazbenlngcjxkxtgp.supabase.co', SUPABASE_KEY = 'sb_publishable_Bg71Ktow4Mjwcibeb8Sqdw_-SSmRBZu';   // filled in by src/build.py; the key is the publishable one
+  var card = document.getElementById('card');
+  var sb = null, user = null, busy = false, leaving = false, run = 0, shownFor = null;
+
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+  function screen() {       // empties the card and puts the title back; returns a function that appends to it
+    card.textContent = '';
+    card.appendChild(el('h1', '', 'Einrichtungsplaner verbinden'));
+    return function (node) { card.appendChild(node); return node; };
+  }
+  function message(text, detail) {
+    var add = screen(); add(el('p', '', text));
+    if (detail) add(el('p', 'err', detail));
+  }
+  function errText(e) { return (e && e.message) ? String(e.message) : 'Unbekannter Fehler'; }
+
+  // A consent page must never be operated from inside someone else's frame.
+  if (window.top !== window.self) { message('Diese Seite kann nicht eingebettet werden. Bitte öffne sie direkt im Browser.'); return; }
+
+  var params = new URLSearchParams(location.search);
+  var rawId = params.get('authorization_id') || '';
+  // supabase-js puts the id into a request path; anything but a plain token is refused before it gets there
+  var authId = /^[A-Za-z0-9_-]{1,200}$/.test(rawId) ? rawId : '';
+  var hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  var linkError = (hash.get('error_description') || params.get('error_description') || '').slice(0, 160);     // e.g. an expired e-mail link
+
+  var RESTART = 'Bitte starte das Verbinden im Assistenten nochmals. Du kommst dann von selbst wieder auf diese Seite.';
+
+  function go(url) {       // only ever called with a redirect_url that supabase-js returned
+    var ok = false;
+    // judged the way the browser will read it (it ignores leading control characters and tabs inside the scheme)
+    try { ok = typeof url === 'string' && !/^(javascript|data|vbscript|blob|file|about):$/.test(new URL(url).protocol); } catch (e) { ok = false; }
+    if (!ok) { message('Die Antwort enthielt keine gültige Adresse für den Rückweg. ' + RESTART); return; }
+    leaving = true;
+    var add = screen();
+    add(el('p', '', 'Du wirst zum Assistenten zurückgeleitet …'));
+    add(el('p', 'sub', 'Falls nichts passiert, geh selbst zum Assistenten zurück. Dieses Fenster kannst du danach schliessen.'));
+    window.location.assign(url);
+  }
+
+  function signOut(btn) {
+    if (busy) return; busy = true; if (btn) btn.disabled = true;
+    var done = function () { busy = false; user = null; shownFor = null; route(); };
+    sb.auth.signOut({ scope: 'local' }).then(done, done);       // this browser only: other devices and connected assistants stay signed in
+  }
+  function whoLine(add) {
+    var p = el('p', 'sub');
+    p.appendChild(document.createTextNode('Angemeldet als ' + ((user && user.email) || 'unbekannt') + '. '));
+    var b = el('button', 'link', 'Nicht du? Abmelden'); b.type = 'button';
+    b.addEventListener('click', function () { signOut(b); });
+    p.appendChild(b); add(p);
+    return b;
+  }
+
+  function showSignIn(note) {
+    shownFor = 'signin';
+    var add = screen();
+    add(el('p', 'sub', 'Melde dich zuerst mit deiner E-Mail-Adresse an. Du bekommst einen Link zugeschickt, ein Passwort brauchst du nicht.'));
+    var l = el('label', 'f', 'E-Mail'), inp = el('input'); inp.type = 'email'; inp.autocomplete = 'email'; inp.inputMode = 'email';
+    l.appendChild(inp); add(l);
+    var b = add(el('button', 'act primary', 'Anmelde-Link senden')); b.type = 'button';
+    var m = add(el('p', 'sub', note || ''));
+    add(el('p', 'sub', 'Wichtig: Öffne den Link aus der E-Mail in diesem Browser auf diesem Gerät. Sonst kann die Verbindung nicht abgeschlossen werden.'));
+    function send() {
+      if (b.disabled) return;
+      var mail = inp.value.trim();
+      if (!/^\S+@\S+\.\S+$/.test(mail)) { m.className = 'err'; m.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben.'; return; }
+      b.disabled = true; m.className = 'sub'; m.textContent = 'Sende …';
+      // back to exactly this page, with the same authorization_id
+      var back = location.origin + location.pathname + '?authorization_id=' + encodeURIComponent(authId);
+      sb.auth.signInWithOtp({ email: mail, options: { emailRedirectTo: back } }).then(function (r) {
+        b.disabled = false;
+        if (r.error) { m.className = 'err'; m.textContent = 'Das hat nicht geklappt: ' + errText(r.error); }
+        else { m.className = 'sub'; m.textContent = 'Link gesendet. Öffne die E-Mail und klicke auf den Link, in diesem Browser. Diese Seite geht danach von selbst weiter.'; }
+      }, function (e) { b.disabled = false; m.className = 'err'; m.textContent = 'Das hat nicht geklappt: ' + errText(e); });
+    }
+    b.addEventListener('click', send);
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
+  }
+
+  function hostOf(uri) {       // where the person is sent back to, in plain words
+    try {
+      var u = new URL(String(uri));
+      if (u.protocol === 'https:' || u.protocol === 'http:') {
+        var h = u.hostname;
+        if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') return 'ein Programm auf diesem Gerät (' + u.host + ')';
+        return u.protocol === 'http:' ? u.host + ' (ungesicherte Verbindung)' : u.host;
+      }
+      return 'eine App auf diesem Gerät (' + u.protocol + '//' + (u.host || '') + ')';
+    } catch (e) { return 'unbekannt'; }
+  }
+
+  function showConsent(d) {
+    shownFor = 'consent:' + (user && user.id);
+    var add = screen();
+    var name = (d.client && typeof d.client.name === 'string' && d.client.name.trim()) || 'Eine unbenannte Anwendung';
+    var who = add(el('div', 'who'));
+    var a = el('div'); a.appendChild(el('span', 'k', 'Diese Anwendung möchte Zugriff')); a.appendChild(el('span', 'v', name)); who.appendChild(a);
+    var r = el('div'); r.appendChild(el('span', 'k', 'Danach wirst du zurückgeschickt zu')); r.appendChild(el('span', 'v', hostOf(d.redirect_uri))); who.appendChild(r);
+    add(el('p', 'mean', 'Dieser Assistent kann danach deine Wohnungen im Einrichtungsplaner lesen und Möbel verschieben, hinzufügen und entfernen. Er sieht nichts anderes von dir.'));
+    var scopes = typeof d.scope === 'string' ? d.scope.trim().split(/\s+/) : [];
+    if (scopes.indexOf('email') >= 0 || scopes.indexOf('profile') >= 0) add(el('p', 'sub', 'Für die Anmeldung erfährt er ausserdem deine E-Mail-Adresse.'));
+    add(el('p', 'sub', 'Erlaube das nur, wenn du die Verbindung gerade selbst gestartet hast und die Anwendung kennst.'));
+    var row = add(el('div', 'row'));
+    var no = el('button', 'act', 'Ablehnen'), yes = el('button', 'act primary', 'Erlauben'); no.type = yes.type = 'button';
+    row.appendChild(no); row.appendChild(yes);
+    var m = add(el('p', 'sub', ''));
+    var out = whoLine(add);
+    function decide(approve) {
+      if (busy || leaving) return;       // a second click while the first one is on its way does nothing
+      busy = true; yes.disabled = no.disabled = out.disabled = true; m.className = 'sub'; m.textContent = 'Einen Moment …';
+      var fail = function (e) {
+        busy = false; yes.disabled = no.disabled = out.disabled = false; m.className = 'err';
+        m.textContent = (approve ? 'Erlauben' : 'Ablehnen') + ' hat nicht geklappt: ' + errText(e) + ' Falls das so bleibt: ' + RESTART;
+      };
+      var call = approve ? sb.auth.oauth.approveAuthorization(authId) : sb.auth.oauth.denyAuthorization(authId);
+      call.then(function (res) {
+        if (!res || res.error || !res.data) { fail(res && res.error); return; }
+        busy = false;
+        go(res.data.redirect_url);       // supabase-js may already be on its way there; asking twice does no harm
+      }, fail);
+    }
+    yes.addEventListener('click', function () { decide(true); });
+    no.addEventListener('click', function () { decide(false); });
+  }
+
+  function loadDetails() {
+    var mine = ++run;
+    shownFor = 'loading';
+    var add = screen(); add(el('p', 'sub', 'Lade …'));
+    var failed = function (e) {
+      if (mine !== run) return;
+      shownFor = 'error';
+      var st = e && e.status;
+      var a = screen();
+      if (st === 400 || st === 404 || st === 410) a(el('p', '', 'Diese Anfrage ist abgelaufen oder ungültig. ' + RESTART));
+      else a(el('p', '', 'Die Anfrage konnte nicht geladen werden. Lade die Seite neu. Hilft das nicht: ' + RESTART));
+      a(el('p', 'err', errText(e)));
+      if (user) whoLine(a);
+    };
+    sb.auth.oauth.getAuthorizationDetails(authId).then(function (res) {
+      if (mine !== run) return;
+      if (!res || res.error || !res.data) {
+        if (res && res.error && res.error.name === 'AuthSessionMissingError') { user = null; showSignIn(); return; }
+        failed(res && res.error); return;
+      }
+      var d = res.data;
+      // no authorization_id in the answer: this person has agreed before, the server only hands back the way home
+      if (!('authorization_id' in d)) { go(d.redirect_url); return; }
+      showConsent(d);
+    }, failed);
+  }
+
+  function route() {
+    if (leaving) return;
+    if (!authId) {
+      message(rawId ? 'Der Link zu dieser Seite ist beschädigt. ' + RESTART
+                    : 'Hier gibt es gerade nichts zu bestätigen: Diese Seite öffnet sich, wenn du den Einrichtungsplaner in einem Assistenten verbindest. ' + RESTART);
+      return;
+    }
+    if (!user) { showSignIn(linkError ? 'Der Link aus der E-Mail hat nicht funktioniert (' + linkError + '). Lass dir einen neuen senden.' : ''); linkError = ''; return; }
+    loadDetails();
+  }
+
+  function setUser(u) {
+    if (busy || leaving) return;
+    var key = u ? 'consent:' + u.id : 'signin';
+    var same = (u && u.id) === (user && user.id);
+    user = u || null;
+    // the same person again (token refresh, tab back in front): keep what is on screen
+    if (same && shownFor && (shownFor === key || shownFor === 'loading' || shownFor === 'error' || shownFor === 'signin')) return;
+    route();
+  }
+
+  if (!/^https:\/\//.test(SUPABASE_URL) || !window.supabase || !window.supabase.createClient) {
+    message('Die Anmeldung ist gerade nicht erreichbar. Bitte lade die Seite später neu.');
+    return;
+  }
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if (!sb.auth.oauth) throw new Error('oauth');
+  } catch (e) {
+    message('Die Anmeldung ist gerade nicht erreichbar. Bitte lade die Seite später neu.');
+    return;
+  }
+  // also fires when the e-mail link was opened in another tab of this browser: this page then goes on by itself
+  sb.auth.onAuthStateChange(function (ev, session) { setTimeout(function () { setUser(session && session.user); }, 0); });
+  sb.auth.getSession().then(function (r) {
+    if (r.error) { message('Die Anmeldung konnte nicht geprüft werden. Bitte lade die Seite neu.', errText(r.error)); return; }
+    setUser(r.data && r.data.session && r.data.session.user);
+  }, function (e) { message('Die Anmeldung konnte nicht geprüft werden. Bitte lade die Seite neu.', errText(e)); });
+  // coming back with the browser's back button: start fresh instead of showing dead buttons
+  window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
+})();
+</script>
+</body>
+</html>
