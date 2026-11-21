@@ -3518,20 +3518,29 @@ label.f input[type="color"] { padding: 2px; height: 32px; }
     const panel = $('aptSel').closest('label'); panel.parentNode.insertBefore(host, panel);
     const note = el('p'); note.style.cssText = 'margin:8px 0 0;font-size:12px;opacity:.7'; $('reset').parentNode.appendChild(note);
     const say = t => { note.textContent = t; };
+    // Signed out, the whole page is a sign-in screen: nobody sees a flat before they are in their account.
+    const gate = el('div'), card = el('div'); let ready = false;
+    gate.style.cssText = 'position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--bg)';
+    card.style.cssText = 'width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px';
+    gate.appendChild(card); document.body.appendChild(gate);
     function ui(msg) {
-      host.textContent = '';
-      if (!sb) { host.appendChild(el('p', 'sub', 'Anmeldung ist gerade nicht erreichbar. Du siehst die Beispielwohnung; Änderungen bleiben auf diesem Gerät.')); return; }
-      if (!user) {
-        host.appendChild(el('p', 'sub', 'Melde dich an, um eigene Wohnungen zu speichern. Ohne Anmeldung siehst du die Beispielwohnung.'));
-        const l = el('label', 'f', 'E-Mail'), inp = el('input'); inp.type = 'email'; inp.autocomplete = 'email'; l.appendChild(inp); host.appendChild(l);
-        const b = el('button', 'act', 'Login-Link senden'), m = el('p', 'sub', msg || ''); host.appendChild(b); host.appendChild(m);
-        b.addEventListener('click', () => {
+      host.textContent = ''; card.textContent = '';
+      gate.style.display = sb && user ? 'none' : 'flex';
+      if (!sb || !user) {
+        const h = el('h1', '', 'Einrichtungsplaner'); h.style.margin = '0'; card.appendChild(h);
+        if (!sb) { card.appendChild(el('p', 'sub', 'Die Anmeldung ist gerade nicht erreichbar. Bitte lade die Seite später neu.')); return; }
+        if (!ready) { card.appendChild(el('p', 'sub', 'Lade …')); return; }
+        card.appendChild(el('p', 'sub', 'Melde dich mit deiner E-Mail-Adresse an. Du bekommst einen Link zugeschickt, ein Passwort brauchst du nicht.'));
+        const l = el('label', 'f', 'E-Mail'), inp = el('input'); inp.type = 'email'; inp.autocomplete = 'email'; l.appendChild(inp); card.appendChild(l);
+        const b = el('button', 'act primary', 'Login-Link senden'), m = el('p', 'sub', msg || ''); card.appendChild(b); card.appendChild(m);
+        const send = () => {
           const mail = inp.value.trim(); if (!/^\S+@\S+\.\S+$/.test(mail)) { m.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben.'; return; }
           b.disabled = true; m.textContent = 'Sende …';
           sb.auth.signInWithOtp({ email: mail, options: { emailRedirectTo: location.origin + location.pathname } }).then(r => {
             b.disabled = false; m.textContent = r.error ? 'Das hat nicht geklappt: ' + r.error.message : 'Link gesendet. Öffne die E-Mail auf diesem Gerät und klicke auf den Link.';
-          });
-        });
+          }, () => { b.disabled = false; m.textContent = 'Das hat nicht geklappt. Bitte versuche es nochmals.'; });
+        };
+        b.addEventListener('click', send); inp.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
         return;
       }
       host.appendChild(el('p', 'sub', 'Angemeldet als ' + (user.email || 'Gast')));
@@ -3645,7 +3654,8 @@ label.f input[type="color"] { padding: 2px; height: 32px; }
       });
     }
     function setUser(u) {
-      if ((u && u.id) === (user && user.id)) return;
+      const first = !ready; ready = true;
+      if ((u && u.id) === (user && user.id)) { if (first) ui(); return; }
       user = u || null;
       if (user) { ui('Lade Wohnungen …'); load(); return; }
       Object.keys(APTS).forEach(k => { delete APTS[k]; delete S.data[k]; });
