@@ -212,6 +212,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
 .ax-badge { font-size: 12px; }
 .ax-variant { flex: 0 1 200px; }
 @media (max-width: 760px) { .ax-variant { flex-basis: 130px; } }
+body.ax #selBox[hidden] { display: none !important; }
 
 /* Account menu and its dialogs (stand-alone app only). Prefix axa-. */
 .axa-bar { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
@@ -443,6 +444,21 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   .axd-detail { grid-template-columns: minmax(0, 1fr); }
   .axd-big { max-height: 42vh; }
 }
+
+.axv-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.axv-row { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--field); }
+.axv-row.axv-on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.axv-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: left; font: inherit; color: var(--fg); background: none; border: 0; padding: 0; cursor: pointer; }
+span.axv-name { cursor: default; }
+.axv-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.axv-title { font-size: 13px; overflow-wrap: anywhere; }
+.axv-size { font-size: 12px; }
+.axv-marks { display: flex; gap: 4px; flex: none; }
+.axv-mark { padding: 3px 8px; font-size: 12px; }
+.axv-link { flex: none; font-size: 12.5px; color: var(--accent); }
+@media (pointer: coarse) { .axv-mark { min-height: 36px; } }
+.axv-pick { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; cursor: pointer; }
+.axv-take { max-height: 260px; overflow: auto; }
 
 </style>
 
@@ -1484,16 +1500,44 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false }), wallMatProf);
     m.rotation.y = -Math.PI / 2; m.position.x = c + t / 2; apt.add(m);
   }
+  // Solid wall piece running along x at z=c whose top edge follows the profile tp: pieces [u0, h0, u1, h1], each
+  // straight from height h0 at u0 to h1 at u1 (walls of a plan under a roof slope, see roofWallTop).
+  function profX(f, to, y0, tp, c, t) {
+    const pts = []; let any = false;
+    tp.forEach(s => {
+      const u0 = Math.max(f, s[0]), u1 = Math.min(to, s[2]); if (u1 - u0 < 1e-9) return;
+      [u0, u1].forEach(u => {
+        const h = Math.max(y0, s[1] + (s[3] - s[1]) * (u - s[0]) / (s[2] - s[0])), l = pts[pts.length - 1];
+        if (h > y0 + 0.005) any = true;
+        if (!l || Math.abs(l[0] - u) > 1e-9 || Math.abs(l[1] - h) > 1e-9) pts.push([u, h]);
+      });
+    });
+    if (!any) return;
+    const sh = new THREE.Shape(); sh.moveTo(f, y0); sh.lineTo(to, y0);
+    for (let i = pts.length - 1; i >= 0; i--) sh.lineTo(pts[i][0], pts[i][1]);
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false }), wallMatProf);
+    m.position.z = c - t / 2; apt.add(m);
+  }
   // Axis-aligned wall with openings. ax 'x': runs along x at z=c. ax 'z': runs along z at x=c. hf(z) = wall height there.
-  function wall(ax, a, b, c, ops, hf) {
+  // tp (only with ax 'x'): top profile along the wall instead of hf, see profX.
+  function wall(ax, a, b, c, ops, hf, tp) {
     const t = 0.12;
+    const lowest = (f, to) => {       // lowest point of the top profile between f and to
+      let m = Infinity;
+      tp.forEach(s => {
+        const u0 = Math.max(f, s[0]), u1 = Math.min(to, s[2]); if (u1 - u0 < 1e-9) return;
+        [u0, u1].forEach(u => { m = Math.min(m, s[1] + (s[3] - s[1]) * (u - s[0]) / (s[2] - s[0])); });
+      });
+      return m === Infinity ? hf(c) : m;
+    };
     const solid = (f, to, y0) => {
       if (to - f < 0.005) return;
-      if (ax === 'x') { const y1 = hf(c); if (y1 - y0 > 0.005) box(apt, to - f, y1 - y0, t, (f + to) / 2, (y0 + y1) / 2, c, wallMat); }
+      if (tp) profX(f, to, y0, tp, c, t);
+      else if (ax === 'x') { const y1 = hf(c); if (y1 - y0 > 0.005) box(apt, to - f, y1 - y0, t, (f + to) / 2, (y0 + y1) / 2, c, wallMat); }
       else profZ(f, to, y0, hf, c, t);
     };
     const glass = (f, to, top, sill) => {
-      const hmax = ax === 'x' ? hf(c) : Math.min(hf(f), hf(to));
+      const hmax = tp ? lowest(f, to) : ax === 'x' ? hf(c) : Math.min(hf(f), hf(to));
       const y0 = Math.min(sill || 0, hmax), hh = Math.min(top, hmax) - y0;
       if (y0 > 0.005) { // parapet below a normal (not floor-to-ceiling) window
         if (ax === 'x') box(apt, to - f, y0, t, (f + to) / 2, y0 / 2, c, wallMat);
@@ -1517,7 +1561,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       if (o.glass) glass(o.f, o.t, top, o.sill);
       // Rendering view: the flat's entrance gets a closed door leaf, otherwise the sky shows and shines through it
       if (RB && o.door) {
-        const hd = Math.min(top, ax === 'x' ? hf(c) : Math.min(hf(o.f), hf(o.t)));
+        const hd = Math.min(top, tp ? lowest(o.f, o.t) : ax === 'x' ? hf(c) : Math.min(hf(o.f), hf(o.t)));
         if (ax === 'x') box(apt, o.t - o.f, hd, 0.04, (o.f + o.t) / 2, hd / 2, c, M(0xf1f0ec, 'lacquer'));
         else box(apt, 0.04, hd, o.t - o.f, c, hd / 2, (o.f + o.t) / 2, M(0xf1f0ec, 'lacquer'));
       }
@@ -1529,6 +1573,15 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([].concat(a, b, c, d || []), 3));
     g.setIndex(d ? [0, 1, 2, 0, 2, 3] : [0, 1, 2]); g.computeVertexNormals();
+    apt.add(new THREE.Mesh(g, mat));
+  }
+  function fans(polys, mat) { // convex polygons, each a list of [x, y, z] corners, as one mesh
+    const pos = [], idx = [];
+    polys.forEach(pts => { const n = pos.length / 3; pts.forEach(p => pos.push(p[0], p[1], p[2])); for (let i = 1; i < pts.length - 1; i++) idx.push(n, n + i, n + i + 1); });
+    if (!idx.length) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx); g.computeVertexNormals();
     apt.add(new THREE.Mesh(g, mat));
   }
   function railing(x0, z0, x1, z1) {
@@ -1554,9 +1607,9 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     if (RB && name) RB.rooms.push({ x0: c[0] - 0.9, z0: c[1] - 0.9, x1: c[0] + 0.9, z1: c[1] + 0.9, kind: kind, name: name });
     return polyArea(pts);
   }
-  function wallSeg(p, q, ops, hf) {
+  function wallSeg(p, q, ops, hf, tp) {
     const dx = q[0] - p[0], dz = q[1] - p[1], len = Math.hypot(dx, dz), saved = apt, g = new THREE.Group();
-    apt = g; try { wall('x', 0, len, 0, ops, hf); } finally { apt = saved; }
+    apt = g; try { wall('x', 0, len, 0, ops, hf, tp); } finally { apt = saved; }
     g.position.set(p[0], 0, p[1]); g.rotation.y = -Math.atan2(dz, dx); apt.add(g);
   }
   // Door leaf drawn open on the floor with its swing arc (plan symbol): hinge point, direction of the closed leaf,
@@ -1576,6 +1629,208 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
 
   const APTS = {};
 
+  // >>> roof geometry
+  // ---- Roof slopes of a plan (attic flats): "roof": { knee, pitch, slopes: [{ eave: [[x,z],[x,z]], area: [[x,z],...] }],
+  // windows: [[[x,z],...], ...] }. Inside a slope's area the ceiling is knee + distance from the eave line * tan(pitch),
+  // never above the room height; outside all areas it is the room height. Pure geometry in plan coordinates (no THREE),
+  // function declarations only (aptFromPlan runs before the constants further down exist). Checked with Node.
+  function rfNum(v, def, lo, hi) { return typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def; }
+  function rfIn(x, z, poly) {       // point in polygon (even-odd)
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c;
+    }
+    return c;
+  }
+  function rfCross(a, b, c) { return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); }
+  // Polygon -> triangles, all with the same sense of rotation (rfCross > 0). Ear clipping that always ends: a polygon
+  // that is not simple (untrusted data) loses corners instead of looping or throwing.
+  function rfTris(poly) {
+    const P = (Array.isArray(poly) ? poly : []).filter(p => Array.isArray(p)).map(p => [+p[0], +p[1]]), out = []; let a2 = 0;
+    P.forEach((p, i) => { const q = P[(i + 1) % P.length]; a2 += p[0] * q[1] - q[0] * p[1]; });
+    if (a2 < 0) P.reverse();
+    if (P.length > 120) { for (let i = 1; i < P.length - 1; i++) if (rfCross(P[0], P[i], P[i + 1]) > 1e-12) out.push([P[0], P[i], P[i + 1]]); return out; }
+    while (P.length > 3) {
+      const n = P.length; let cut = -1, flat = -1;
+      for (let i = 0; i < n && cut < 0; i++) {
+        const a = P[(i + n - 1) % n], b = P[i], c = P[(i + 1) % n], k = rfCross(a, b, c);
+        if (Math.abs(k) <= 1e-12) { if (flat < 0) flat = i; continue; }
+        if (k < 0) continue;
+        if (!P.some(q => q !== a && q !== b && q !== c && rfCross(a, b, q) > 1e-12 && rfCross(b, c, q) > 1e-12 && rfCross(c, a, q) > 1e-12)) cut = i;
+      }
+      if (cut < 0) cut = flat >= 0 ? flat : 0;
+      const a = P[(cut + n - 1) % n], c = P[(cut + 1) % n];
+      if (rfCross(a, P[cut], c) > 1e-12) out.push([a, P[cut], c]);
+      P.splice(cut, 1);
+    }
+    if (P.length === 3 && rfCross(P[0], P[1], P[2]) > 1e-12) out.push(P);
+    return out;
+  }
+  // Part of a convex polygon where nx*x + nz*z + c >= 0, or null if nothing (worth drawing) is left.
+  function rfCut(poly, nx, nz, c) {
+    const out = [], n = poly.length; let a2 = 0;
+    for (let i = 0; i < n; i++) {
+      const a = poly[i], b = poly[(i + 1) % n], fa = nx * a[0] + nz * a[1] + c, fb = nx * b[0] + nz * b[1] + c;
+      if (fa >= 0) out.push(a);
+      if ((fa > 0 && fb < 0) || (fa < 0 && fb > 0)) { const t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+    }
+    out.forEach((p, i) => { const q = out[(i + 1) % out.length]; a2 += p[0] * q[1] - q[0] * p[1]; });
+    return out.length >= 3 && Math.abs(a2) > 2e-7 ? out : null;
+  }
+  function rfAnd(poly, T) {         // convex polygon inside triangle T (from rfTris)
+    let q = poly;
+    for (let i = 0; i < 3 && q; i++) { const a = T[i], b = T[(i + 1) % 3], nx = a[1] - b[1], nz = b[0] - a[0]; q = rfCut(q, nx, nz, -(nx * a[0] + nz * a[1])); }
+    return q;
+  }
+  function rfMinus(poly, T) {       // convex polygon without triangle T: a list of convex pieces
+    if (!rfAnd(poly, T)) return [poly];
+    const out = []; let rest = poly;
+    for (let i = 0; i < 3 && rest; i++) {
+      const a = T[i], b = T[(i + 1) % 3], nx = a[1] - b[1], nz = b[0] - a[0], c = -(nx * a[0] + nz * a[1]), o = rfCut(rest, -nx, -nz, -c);
+      if (o) out.push(o);
+      rest = rfCut(rest, nx, nz, c);
+    }
+    return out;
+  }
+  // The roof of one build: K knee wall height, tanS = tan(pitch) * plan scale, top = room (or low-wall) height.
+  // d(x, z) = s.nx*x + s.nz*z + s.c is the distance from the eave line, positive towards the slope's area.
+  function roofOf(roof, K, tanS, top) {
+    tanS = Math.max(1e-6, tanS);
+    const sl = roof.slopes.map(s => {
+      const a = s.eave[0], b = s.eave[1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; let nx = (a[1] - b[1]) / l, nz = (b[0] - a[0]) / l, c = -(nx * a[0] + nz * a[1]), m = 0;
+      s.area.forEach(p => { m += nx * p[0] + nz * p[1] + c; });
+      if (m < 0) { nx = -nx; nz = -nz; c = -c; }
+      return { nx: nx, nz: nz, c: c, area: s.area, tris: rfTris(s.area) };
+    });
+    const hs = (s, x, z) => Math.min(top, K + Math.max(0, s.nx * x + s.nz * z + s.c) * tanS);
+    // ceiling height at a plan point
+    const at = (x, z) => { let h = top; sl.forEach(s => { if (rfIn(x, z, s.area)) h = Math.min(h, hs(s, x, z)); }); return h; };
+    return { sl: sl, K: K, tanS: tanS, top: top, dF: (top - K) / tanS, hs: hs, at: at, wins: (roof.windows || []).map(rfTris), n: 0 };
+  }
+  // Top edge of a wall from a to b (thickness t, it runs t/2 beyond both ends as every wall does): pieces
+  // [u0, h0, u1, h1] along the wall, u in metres from a. A wall counts as under a slope where its centre line or one
+  // of its faces lies in the slope's area (so an area drawn along the inner room corners still cuts the outer walls);
+  // the last 9 cm at each end and the stubs beyond take the area of the point 9 cm in (a wall that ends at a corner or
+  // at the edge of an area belongs to one side as a whole). The height itself is measured at the real point.
+  function roofWallTop(R, a, b, t) {
+    a = [+a[0], +a[1]]; b = [+b[0], +b[1]];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]), lo = -t / 2, hi = len + t / 2, out = [];
+    if (!(len > 1e-6)) return [[lo, R.top, hi, R.top]];
+    const ux = (b[0] - a[0]) / len, uz = (b[1] - a[1]) / len, cuts = [lo, hi], offs = [0, t / 2 + 0.02, -t / 2 - 0.02];
+    const add = u => { if (isFinite(u) && u > lo && u < hi) cuts.push(u); };
+    const lin = R.sl.map(s => [s.nx * a[0] + s.nz * a[1] + s.c, s.nx * ux + s.nz * uz]);      // d(u) = l[0] + l[1] * u
+    R.sl.forEach((s, i) => {
+      const l = lin[i];
+      if (Math.abs(l[1]) > 1e-9) { add(-l[0] / l[1]); add((R.dF - l[0]) / l[1]); }
+      lin.forEach((m, j) => { if (j > i && Math.abs(l[1] - m[1]) > 1e-9) add((m[0] - l[0]) / (l[1] - m[1])); });
+      offs.forEach(o => {
+        const ox = a[0] - uz * o, oz = a[1] + ux * o;
+        s.area.forEach((p, j) => {
+          const q = s.area[(j + 1) % s.area.length], ex = q[0] - p[0], ez = q[1] - p[1], den = ux * ez - uz * ex;
+          if (Math.abs(den) < 1e-12) return;
+          const u = ((p[0] - ox) * ez - (p[1] - oz) * ex) / den, v = ((p[0] - ox) * uz - (p[1] - oz) * ux) / den;
+          if (v >= 0 && v <= 1 && u > 0 && u < len) cuts.push(u);
+        });
+      });
+    });
+    cuts.sort((p, q) => p - q);
+    const e = Math.min(t / 2 + 0.03, len / 2);
+    for (let k = 0; k < cuts.length - 1; k++) {
+      const u0 = cuts[k], u1 = cuts[k + 1]; if (u1 - u0 < 1e-6) continue;
+      const m = Math.min(len - e, Math.max(e, (u0 + u1) / 2)), mx = a[0] + ux * m, mz = a[1] + uz * m; let h0 = R.top, h1 = R.top;
+      R.sl.forEach((s, i) => {
+        if (!offs.some(o => rfIn(mx - uz * o, mz + ux * o, s.area))) return;
+        h0 = Math.min(h0, R.K + Math.max(0, lin[i][0] + lin[i][1] * u0) * R.tanS); h1 = Math.min(h1, R.K + Math.max(0, lin[i][0] + lin[i][1] * u1) * R.tanS);
+      });
+      out.push([u0, h0, u1, h1]);
+    }
+    return out.length ? out : [[lo, R.top, hi, R.top]];
+  }
+  // Cuts ceiling (or floor) polygons along the slopes: convex pieces { pts: [[x,z],...], hs: [height per corner],
+  // k: 0 full height outside every slope area | 1 in an area but at full height | 2 sloped | 3 beyond the eave }.
+  // Where slope areas overlap the lower slope owns the piece. open: pieces k 2 and 3 are left open at the roof
+  // windows. upTo: only the parts of the slopes up to this distance from the eave (headroom zones on the floor).
+  // R.n counts the pieces of one build: a plan made to explode stops at 20000.
+  function roofCeil(R, polys, open, upTo) {
+    const out = [], minus = (list, T) => [].concat(...list.map(x => rfMinus(x, T)));
+    polys.forEach(poly => rfTris(poly).forEach(T => {
+      if (R.n > 20000) return;
+      let rest = [T];
+      R.sl.forEach((s, i) => {
+        s.tris.forEach(A => {
+          let parts = [rfAnd(T, A)].filter(Boolean);
+          R.sl.forEach((o, j) => {
+            if (j === i || !parts.length) return;
+            const nx = o.nx - s.nx, nz = o.nz - s.nz, c = o.c - s.c, same = Math.hypot(nx, nz) < 1e-9, next = [];
+            parts.forEach(p => {
+              let outside = [p];
+              o.tris.forEach(B => {
+                const q = rfAnd(p, B), keep = q && (same ? ((c > 1e-9 || (c > -1e-9 && i < j)) ? q : null) : rfCut(q, nx, nz, c));
+                if (keep) next.push(keep);
+                outside = minus(outside, B);
+              });
+              next.push(...outside);
+            });
+            parts = next;
+          });
+          parts.forEach(p => {
+            const put = (q, k) => {
+              if (!q) return;
+              let list = [q];
+              if (open && k >= 2) R.wins.forEach(w => w.forEach(W => { list = minus(list, W); }));
+              R.n += list.length;
+              list.forEach(x => out.push({ pts: x, hs: x.map(v => R.hs(s, v[0], v[1])), k: k }));
+            };
+            if (upTo != null) { put(rfCut(p, -s.nx, -s.nz, upTo - s.c), 2); return; }
+            const f = Math.max(0, R.dF), low = rfCut(p, -s.nx, -s.nz, -s.c), mid = f > 1e-6 ? rfCut(p, s.nx, s.nz, s.c) : null;
+            put(low, R.K < R.top - 0.01 ? 3 : 1);
+            put(mid && rfCut(mid, -s.nx, -s.nz, f - s.c), 2);
+            put(rfCut(p, s.nx, s.nz, s.c - f), 1);
+          });
+          rest = minus(rest, A);
+        });
+      });
+      R.n += rest.length;
+      if (upTo == null) rest.forEach(p => out.push({ pts: p, hs: p.map(() => R.top), k: 0 }));
+    }));
+    return out;
+  }
+  // Vertical closing pieces where the ceiling jumps at the edge of a slope area (dormer cheek, a slope that ends
+  // below the room height): { a: [x,z], b: [x,z], h: [side 1 at a, side 1 at b, side 2 at b, side 2 at a] }.
+  // Only inside the ceiling polygons, so nothing is hung on the outside of the flat.
+  function roofSteps(R, polys) {
+    const foot = polys.map(p => (Array.isArray(p) ? p : []).filter(q => Array.isArray(q)).map(q => [+q[0], +q[1]])), out = [];
+    const edges = []; foot.forEach(p => p.forEach((q, j) => edges.push([q, p[(j + 1) % p.length]])));
+    R.sl.forEach(s => s.area.forEach((q, j) => edges.push([q, s.area[(j + 1) % s.area.length]])));
+    R.sl.forEach(s => s.area.forEach((p, j) => {
+      const q = s.area[(j + 1) % s.area.length], len = Math.hypot(q[0] - p[0], q[1] - p[1]); if (!(len > 1e-6) || out.length > 2000) return;
+      const ux = (q[0] - p[0]) / len, uz = (q[1] - p[1]) / len, cuts = [0, len], add = u => { if (isFinite(u) && u > 0 && u < len) cuts.push(u); };
+      const lin = R.sl.map(o => [o.nx * p[0] + o.nz * p[1] + o.c, o.nx * ux + o.nz * uz]);
+      lin.forEach((l, i) => {
+        if (Math.abs(l[1]) > 1e-9) { add(-l[0] / l[1]); add((R.dF - l[0]) / l[1]); }
+        lin.forEach((m, k) => { if (k > i && Math.abs(l[1] - m[1]) > 1e-9) add((m[0] - l[0]) / (l[1] - m[1])); });
+      });
+      edges.forEach(e => {
+        const ex = e[1][0] - e[0][0], ez = e[1][1] - e[0][1], den = ux * ez - uz * ex; if (Math.abs(den) < 1e-12) return;
+        const u = ((e[0][0] - p[0]) * ez - (e[0][1] - p[1]) * ex) / den, v = ((e[0][0] - p[0]) * uz - (e[0][1] - p[1]) * ux) / den;
+        if (v >= 0 && v <= 1) add(u);
+      });
+      cuts.sort((x, y) => x - y);
+      for (let k = 0; k < cuts.length - 1; k++) {
+        const u0 = cuts[k], u1 = cuts[k + 1]; if (u1 - u0 < 1e-4) continue;
+        const e = 1e-4, P = (u, sd) => [p[0] + ux * u - uz * e * sd, p[1] + uz * u + ux * e * sd], m = (u0 + u1) / 2;
+        if (![1, -1].every(sd => { const c = P(m, sd); return foot.some(f => rfIn(c[0], c[1], f)); })) continue;
+        const H = (u, sd) => { const c = P(u, sd); return R.at(c[0], c[1]); }, d = 1e-5;
+        const h = [H(u0 + d, 1), H(u1 - d, 1), H(u1 - d, -1), H(u0 + d, -1)];
+        if (Math.abs(h[0] - h[3]) < 0.005 && Math.abs(h[1] - h[2]) < 0.005) continue;
+        out.push({ a: [p[0] + ux * u0, p[1] + uz * u0], b: [p[0] + ux * u1, p[1] + uz * u1], h: h });
+      }
+    }));
+    return out;
+  }
+  // <<< roof geometry
+
   // ---- Flats as data. A plan is plain JSON (metres; x to the right, z downwards on the drawing):
   //   { title, sub, note, height,
   //     rooms:    [{ name, kind: 'parquet'|'tile'|'balcony', pts: [[x,z],...], area, label: [x,z] }],
@@ -1584,7 +1839,8 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   //     rails:    [[[x,z],[x,z]], ...],
   //     fixtures: [{ w, h, d, x, z, y, rot, mat, color }],                              // kitchen, sanitary: boxes
   //     eyes:     [{ name, pos: [x,z], look: [x,z,height] }], sun: [x,y,z], spawn: [x,z],
-  //     items:    [{ name, x, z, rot }] }                                               // example furniture by catalog name
+  //     items:    [{ name, x, z, rot }],                                                // example furniture by catalog name
+  //     roof:     { knee, pitch, slopes: [{ eave, area }], windows } }                  // attic flats, see "Roof slopes" above
   // Everything else (materials, light, Rendering view, furniture) is the same code for every flat.
   function planError(plan) {
     if (!plan || typeof plan !== 'object') return 'Das ist keine Grundriss-Datei.';
@@ -1600,6 +1856,18 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     if ((plan.eyes || []).some(e => !e || !pt(e.pos) || !pt(e.look))) return 'Ein Standpunkt ist unvollständig (pos, look).';
     if ((plan.ceiling || []).some(q => !pt(q)) || plan.rooms.some(r => r.label != null && !pt(r.label))) return 'Die Grundriss-Datei ist beschädigt.';
     if ((plan.items || []).some(i => !i || typeof i !== 'object')) return 'Die Grundriss-Datei ist beschädigt.';
+    const R = plan.roof;
+    if (R != null) {      // strict: these numbers go straight into the geometry
+      const num = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi, rp = p => Array.isArray(p) && p.length >= 2 && num(p[0], -1000, 1000) && num(p[1], -1000, 1000);
+      const poly = q => Array.isArray(q) && q.length >= 3 && q.length <= 40 && q.every(rp);
+      if (typeof R !== 'object' || Array.isArray(R)) return 'Das Dach (roof) in der Grundriss-Datei ist beschädigt.';
+      if (!num(R.knee, 0, 3)) return 'Der Kniestock (roof.knee) muss zwischen 0 und 3 Metern liegen.';
+      if (!num(R.pitch, 5, 75)) return 'Die Dachneigung (roof.pitch) muss zwischen 5 und 75 Grad liegen.';
+      if (!Array.isArray(R.slopes) || !R.slopes.length || R.slopes.length > 4) return 'Das Dach braucht eine bis vier Dachschrägen (roof.slopes).';
+      if (R.slopes.some(s => !s || typeof s !== 'object' || !Array.isArray(s.eave) || s.eave.length !== 2 || !s.eave.every(rp) || Math.hypot(s.eave[0][0] - s.eave[1][0], s.eave[0][1] - s.eave[1][1]) < 0.01)) return 'Eine Dachschräge hat keine gültige Trauflinie (eave: zwei verschiedene Punkte).';
+      if (R.slopes.some(s => !poly(s.area))) return 'Eine Dachschräge hat keinen gültigen Bereich (area: 3 bis 40 Eckpunkte).';
+      if (R.windows != null && (!Array.isArray(R.windows) || R.windows.length > 8 || !R.windows.every(poly))) return 'Die Dachfenster (roof.windows) sind ungültig: höchstens 8 Vielecke mit je 3 bis 40 Eckpunkten.';
+    }
     const C = plan.concepts;
     if (C != null && (typeof C !== 'object' || !Array.isArray(C.region) || !C.region.every(pt) || !Array.isArray(C.options) || C.options.some(o => !o || (o.items != null && !Array.isArray(o.items))))) return 'Die Konzepte in der Grundriss-Datei sind beschädigt.';
     return '';
@@ -1614,40 +1882,64 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       const k = Math.min(0.9, fd * 0.6) / Math.max(0.01, fd);
       return { name: r.name, pos: [far[0] + (c[0] - far[0]) * k, far[1] + (c[1] - far[1]) * k], look: [c[0], c[1], 1.0] };
     });
+    const roof = plan.roof || null;       // attic flat: knee wall and pitch become parameters of the flat
     const strip = (a, b, t) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l * t, nz = dx / l * t; return [[a[0] + nx, a[1] + nz], [b[0] + nx, b[1] + nz], [b[0] - nx, b[1] - nz], [a[0] - nx, a[1] - nz]]; };
     return {
       rev: 1, plan: plan, concepts: plan.concepts || null, label: label || plan.title || 'Wohnung', title: plan.title || label || 'Wohnung', sub: plan.sub || '',
       note: plan.note || 'Nach deinem Grundriss angelegt. Masse, Raumhöhe und Fensterhöhen so genau wie die Vorlage; prüfe wichtige Masse vor einem Kauf vor Ort.',
-      defP: { Sc: 1, H: plan.height || 2.5 },
-      fields: [['Sc', 'Massstab Plan', 0.95, 1.05, 0.005], ['H', 'Raumhöhe', 2.2, 3.5, 0.01]],
+      defP: roof ? { Sc: 1, K: roof.knee, pitch: roof.pitch, H: plan.height || 2.5 } : { Sc: 1, H: plan.height || 2.5 },
+      fields: roof ? [['Sc', 'Massstab Plan', 0.95, 1.05, 0.005], ['K', 'Kniestock', 0, 2.4, 0.05], ['pitch', 'Dachneigung °', 15, 60, 0.5], ['H', 'Raumhöhe', 2.2, 3.5, 0.01]]
+        : [['Sc', 'Massstab Plan', 0.95, 1.05, 0.005], ['H', 'Raumhöhe', 2.2, 3.5, 0.01]],
       spawn: plan.spawn || (inner[0] ? cen(inner[0]) : [1, 1]), sun: plan.sun || [-0.8, 0.45, 0.5],
       eyes: P => { const k = P.Sc || 1; return (plan.eyes && plan.eyes.length ? plan.eyes : autoEyes()).map(e => ({ name: e.name, pos: [e.pos[0] * k, 1.6, e.pos[1] * k], look: [e.look[0] * k, e.look[2] || 1.0, e.look[1] * k] })); },
       eye(P) { return this.eyes(P)[0] || { name: 'Raum', pos: [bb[0] + 0.8, 1.6, bb[1] + 0.8], look: [(bb[0] + bb[2]) / 2, 1, (bb[1] + bb[3]) / 2] }; },
       items: P => (plan.items || []).filter(i => CATALOG.some(c => c.name === i.name)).map(i => Object.assign(mk(i.name, i.x * (P.Sc || 1), i.z * (P.Sc || 1), i.rot || 0), i.more || {})),
       build(P, low) {
         const wh = low ? 1.0 : P.H, hf = () => wh, Sc = P.Sc || 1, pb = plan.bounds || {}; let area = 0, bal = 0;
+        // R: the roof slopes at this flat's settings (null for a flat without roof: everything below is then as before)
+        const R = roof ? roofOf(roof, rfNum(P.K, roof.knee, 0, 3), Math.tan(rfNum(P.pitch, roof.pitch, 5, 75) * Math.PI / 180) * Math.abs(Sc), wh) : null;
+        const up = c => c.pts.map((p, i) => [p[0], c.hs[i], p[1]]), foot = [];
+        // Rendering view: closed ceiling over a polygon; under a roof flat and sloped pieces, open at the roof windows
+        const lid = pts => { if (R) { foot.push(pts); fans(roofCeil(R, [pts], true).map(up), ceilMat2); } else polyMesh(pts, wh, false, ceilMat2); };
         rooms.forEach(r => {
           const a = floorPoly(r.pts, r.kind || 'parquet', r.name, r.area, r.label);
-          if (r.kind === 'balcony') bal += a; else { if (!r.extra) area += a; if (RB && !plan.ceiling) polyMesh(r.pts, wh, false, ceilMat2); }
+          if (r.kind === 'balcony') bal += a; else { if (!r.extra) area += a; if (RB && !plan.ceiling) lid(r.pts); }
         });
         (plan.walls || []).forEach(w => {
-          wallSeg(w.a, w.b, w.ops || [], hf);
+          const tp = R ? roofWallTop(R, w.a, w.b, 0.12) : null, level = tp && tp.every(s => Math.abs(s[1] - tp[0][1]) < 1e-6 && Math.abs(s[3] - tp[0][1]) < 1e-6);
+          if (!tp) wallSeg(w.a, w.b, w.ops || [], hf);
+          else if (level) wallSeg(w.a, w.b, w.ops || [], () => tp[0][1]);       // same height all along: a plain wall
+          else wallSeg(w.a, w.b, w.ops || [], hf, tp);
           if (plan.wallFloor !== false) {       // floor runs on under the wall, so doorways have no gap
             const f = floors()[w.floor || 'parquet'] || floors().parquet;
             Realism.floorUVs(polyMesh(strip(w.a, w.b, 0.07), -0.003, true, f.mat), f.set);
           }
-          if (RB && !plan.ceiling) polyMesh(strip(w.a, w.b, 0.07), wh, false, ceilMat2);
+          if (RB && !plan.ceiling) lid(strip(w.a, w.b, 0.07));
         });
         (plan.doors || []).forEach(d => doorSwing(d.hinge, d.closed, d.open, d.r || 0.8));
         (plan.rails || []).forEach(sg => railSeg(sg[0], sg[1]));
-        if (RB && plan.ceiling) polyMesh(plan.ceiling, wh, false, ceilMat2);
+        if (RB && plan.ceiling) lid(plan.ceiling);
+        if (R && RB) fans(roofSteps(R, foot).map(q => [[q.a[0], q.h[0], q.a[1]], [q.b[0], q.h[1], q.b[1]], [q.b[0], q.h[2], q.b[1]], [q.a[0], q.h[3], q.a[1]]]), ceilMat2);
+        else if (R) {
+          // floor zones with less than 2.0 m and 1.5 m headroom under the slopes
+          const live = inner.map(r => r.pts), shade = overlayMat(0x1e2622, { opacity: 0.13 });
+          [2.0, 1.5].forEach((lim, i) => {
+            const s = (lim - R.K) / R.tanS; if (!(s > 0.02)) return;
+            fans(roofCeil(R, live, false, s).map(c => c.pts.map(p => [p[0], 0.006 + i * 0.004, p[1]]).reverse()), shade);
+          });
+          if (!low) {     // the slopes as a translucent sheet, the roof windows as glass just above it
+            const sheet = overlayMat(0xffffff, { opacity: 0.22, side: THREE.DoubleSide });
+            fans(roofCeil(R, plan.ceiling ? [plan.ceiling] : live, false).filter(c => c.k === 2).map(c => up(c).reverse()), sheet);
+            fans(roofCeil(R, roof.windows || [], false).filter(c => c.k === 1 || c.k === 2).map(c => up(c).map(p => [p[0], p[1] + 0.012, p[2]]).reverse()), glassMat);
+          }
+        }
         (plan.fixtures || []).forEach(f => {
-          const y0 = f.y || 0; if (y0 >= wh || (low && f.hideLow)) return;
-          const h = f.noClip ? f.h : Math.min(f.h, wh - y0), m = box(apt, f.w, h, f.d, f.x, y0 + h / 2, f.z, f.mat === 'wall' ? wallMat : M(f.color || '#f4f4f1', f.mat || 'lacquer'));
+          const top = R ? R.at(f.x, f.z) : wh, y0 = f.y || 0; if (y0 >= top || (low && f.hideLow)) return;
+          const h = f.noClip ? f.h : Math.min(f.h, top - y0), m = box(apt, f.w, h, f.d, f.x, y0 + h / 2, f.z, f.mat === 'wall' ? wallMat : M(f.color || '#f4f4f1', f.mat || 'lacquer'));
           if (f.rot) m.rotation.y = -f.rot * Math.PI / 180;
         });
         return {
-          scale: Sc, ceilAt: () => wh, center: plan.center ? [plan.center[0] * Sc, plan.center[1] * Sc] : [(bb[0] + bb[2]) / 2 * Sc, (bb[1] + bb[3]) / 2 * Sc],
+          scale: Sc, ceilAt: R ? (x, z) => R.at(x, z) : () => wh, center: plan.center ? [plan.center[0] * Sc, plan.center[1] * Sc] : [(bb[0] + bb[2]) / 2 * Sc, (bb[1] + bb[3]) / 2 * Sc],
           bounds: { minX: (pb.minX !== undefined ? pb.minX : bb[0] - 0.3) * Sc, maxX: (pb.maxX !== undefined ? pb.maxX : bb[2] + 0.3) * Sc, minZ: (pb.minZ !== undefined ? pb.minZ : bb[1] - 0.3) * Sc, maxZ: (pb.maxZ !== undefined ? pb.maxZ : bb[3] + 0.3) * Sc, height: wh },
           text: (plan.areaText || '') + 'Bodenfläche im Modell: ' + fmt(area * Sc * Sc) + ' m²' + (bal ? ', Balkon ' + fmt(bal * Sc * Sc) + ' m²' : '')
         };
@@ -2678,14 +2970,19 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   const ownBox = document.createElement('input'), ownLab = document.createElement('label'); ownBox.type = 'checkbox'; ownBox.id = 'sOwned';
   ownLab.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer'; ownLab.appendChild(ownBox); ownLab.appendChild(document.createTextNode('Besitze ich schon'));
   $('sName').closest('label').insertAdjacentElement('afterend', ownLab);
-  ownBox.addEventListener('change', () => { const it = sel(); if (!it) return; if (ownBox.checked) it.owned = true; else delete it.owned; save(); emit('items'); if (typeof varBuild === 'function') varBuild(); });
+  const buyBox = document.createElement('input'), buyLab = document.createElement('label'); buyBox.type = 'checkbox'; buyBox.id = 'sBuy';
+  buyLab.style.cssText = ownLab.style.cssText; buyLab.appendChild(buyBox); buyLab.appendChild(document.createTextNode('Auf die Einkaufsliste'));
+  ownLab.insertAdjacentElement('afterend', buyLab);
+  const markSet = (k, on, other) => { const it = sel(); if (!it) return; if (on) { it[k] = true; delete it[other]; } else delete it[k]; ownBox.checked = it.owned === true; buyBox.checked = it.buy === true; save(); emit('items'); if (typeof varBuild === 'function') varBuild(); };
+  ownBox.addEventListener('change', () => markSet('owned', ownBox.checked, 'buy'));
+  buyBox.addEventListener('change', () => markSet('buy', buyBox.checked, 'owned'));
   function select(id) {
     selId = id; markSel(); emit('select', id);
     const it = sel();
     $('selEmpty').hidden = !!it; $('selBox').hidden = !it;
     if (it) {
       $('sName').value = it.name; $('sW').value = Math.round(it.w * 100); $('sD').value = Math.round(it.d * 100);
-      $('sH').value = Math.round(it.h * 100); $('sColor').value = it.color; ownBox.checked = it.owned === true;
+      $('sH').value = Math.round(it.h * 100); $('sColor').value = it.color; ownBox.checked = it.owned === true; buyBox.checked = it.buy === true;
     }
     selLink.hidden = !(it && LINKS[it.name]); if (!selLink.hidden) selLink.href = LINKS[it.name];
     const hs = !!(it && it.side);
@@ -3896,6 +4193,28 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     const next = cur.variants.splice(k, 1)[0]; cur.variants.unshift({ name: cur.vname, items: cur.items });
     cur.items = next.items; cur.vname = next.name; select(null); rebuildAll(); save(); emit('remote'); varBuild(); if (ziRow) ziMark();
   }
+  // Takes pieces (by id) from another variant into the arrangement on screen. Today's arrangement is first kept as
+  // a copy. Whatever stands in the way of a new floor-standing piece goes, except pieces marked as owned, and with
+  // it the things that stood on or hung above it. Returns { added, removed, backup } or null.
+  function varTake(k, ids) {
+    const src = cur.variants[k]; if (!src || !Array.isArray(ids)) return null;
+    const take = src.items.filter(it => ids.indexOf(it.id) >= 0); if (!take.length || cur.variants.length >= 11) return null;
+    const floorish = it => it.type !== 'rug' && it.type !== 'curtain' && !(it.elev > 0.05);
+    const corners = it => { const a = (it.rot || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), w = it.w / 2 - 0.04, d = it.d / 2 - 0.04; return [[-w, -d], [w, -d], [w, d], [-w, d]].map(q => [it.x + q[0] * c - q[1] * s, it.z + q[0] * s + q[1] * c]); };
+    const hit = (A, B) => {       // do two turned rectangles overlap (separating axes)
+      const pa = corners(A), pb = corners(B);
+      return [pa, pb].every(P => [0, 1].every(i => { const ax = [P[i + 1][0] - P[i][0], P[i + 1][1] - P[i][1]], pr = Q => Q.map(q => q[0] * ax[0] + q[1] * ax[1]), u = pr(pa), v = pr(pb); return Math.max(...u) > Math.min(...v) && Math.max(...v) > Math.min(...u); }));
+    };
+    const inside = (p, B) => { const a = -(B.rot || 0) * Math.PI / 180, dx = p.x - B.x, dz = p.z - B.z, lx = dx * Math.cos(a) - dz * Math.sin(a), lz = dx * Math.sin(a) + dz * Math.cos(a); return Math.abs(lx) <= B.w / 2 && Math.abs(lz) <= B.d / 2; };
+    const backup = (cur.vname + ' (vorher)').slice(0, 60);
+    cur.variants.unshift({ name: backup, items: JSON.parse(JSON.stringify(cur.items)) });
+    const gone = cur.items.filter(o => o.owned !== true && floorish(o) && take.some(t => floorish(t) && hit(t, o)));
+    const goneToo = cur.items.filter(o => o.owned !== true && gone.indexOf(o) < 0 && o.elev > 0.05 && gone.some(g => inside(o, g)));
+    const out = gone.concat(goneToo);
+    cur.items = cur.items.filter(o => out.indexOf(o) < 0).concat(JSON.parse(JSON.stringify(take)).map(it => Object.assign(it, { id: uid() })));
+    select(null); rebuildAll(); save(); emit('remote'); varBuild(); if (ziRow) ziMark();
+    return { added: take.length, removed: out.map(o => o.name || 'Möbelstück'), backup };
+  }
   varSel.addEventListener('change', () => {
     if (varSel.value !== 'new') { varSwitch(+varSel.value); return; }
     varSel.value = '-1';      // "new": lead to the panel where a copy gets its name
@@ -3998,9 +4317,15 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       const it = cur.items.find(i => i.id === id); if (!it || !patch) return false;
       ['x', 'z', 'rot', 'w', 'd', 'h', 'elev'].forEach(k => { if (typeof patch[k] === 'number' && isFinite(patch[k])) it[k] = patch[k]; });
       ['color', 'name', 'side'].forEach(k => { if (typeof patch[k] === 'string') it[k] = patch[k]; });
+      ['owned', 'buy'].forEach(k => { if (patch[k] === true) it[k] = true; else if (patch[k] === false) delete it[k]; });      // already owned / on the shopping list
       it.rot = ((it.rot % 360) + 360) % 360; refreshItem(it); if (selId === id) select(id); syncLights(); save(); return true;
     },
     removeItem(id) { if (!cur.items.some(i => i.id === id)) return false; select(id); removeSel(); return true; },
+    // Furnishing variants of the flat on screen. variants() lists the others with their pieces; takeFromVariant puts
+    // chosen pieces of another variant into the arrangement on screen (see varTake).
+    variants: () => ({ current: cur.vname, others: cur.variants.map(v => ({ name: v.name, items: clone(v.items) })) }),
+    switchVariant: k => varSwitch(k),
+    takeFromVariant: (k, ids) => varTake(k, ids),
     setItems(items) {            // replaces all furniture of the flat on screen (used for undo and for applying a set of changes)
       cur.items = okItems(items).map(it => Object.assign({}, it, { id: typeof it.id === 'string' && it.id ? it.id : uid() }));
       select(null); rebuildAll(); save();
@@ -5872,6 +6197,10 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       arr(o.rails).forEach(function (r) { arr(r).forEach(pt); });
       arr(o.fixtures).forEach(function (x) { keys(x, ['x', 'z', 'w', 'd']); });
       arr(o.ceiling).forEach(pt);
+      if (o.roof && typeof o.roof === 'object') {       // knee wall height and pitch stay as they are
+        arr(o.roof.slopes).forEach(function (s) { if (!s) return; arr(s.eave).forEach(pt); arr(s.area).forEach(pt); });
+        arr(o.roof.windows).forEach(function (w) { arr(w).forEach(pt); });
+      }
       arr(o.eyes).forEach(function (e) { if (!e) return; pt(e.pos); pt(e.look); });
       pt(o.spawn); pt(o.center); keys(o.bounds, ['minX', 'maxX', 'minZ', 'maxZ']);
       arr(o.items).forEach(function (i) { keys(i, ['x', 'z']); });
@@ -6853,6 +7182,106 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     if (window.MutationObserver) new window.MutationObserver(function () { if (!pane.hidden) { try { sync(true); } catch (e) {} } }).observe(pane, { attributes: true, attributeFilter: ['hidden'] });
     sync(true);
   } catch (e) {}
+})();
+
+// Overview of the furniture in the arrangement on screen, in the 'sel' pane below the selected piece: what the
+// person already owns, what is on the shopping list, and the shopping list itself with shop links.
+// A piece carries the marks itself (item.owned, item.buy), so they travel with it into every variant.
+(function () {
+  'use strict';
+  var P = window.Planner, UI = window.AppUI; if (!P || !UI || !P.backend) return;
+  var pane = UI.pane('sel'); if (!pane) return;
+  var el = UI.el, filter = 'all', timer = 0;
+
+  var box = el('div', 'ax-stack axv-box'), head = el('h3', 'ax-h', ''), chips = el('div', 'ax-row'), list = el('ul', 'ax-list axv-list'), none = el('p', 'ax-muted', '');
+  var shopHead = el('h3', 'ax-h', 'Einkaufsliste'), shop = el('ul', 'ax-list axv-shop'), shopNone = el('p', 'ax-muted', 'Noch nichts auf der Einkaufsliste. Setz bei einem Möbelstück «Kaufen».'), copyBtn = el('button', 'ax-btn small', 'Einkaufsliste kopieren');
+  copyBtn.type = 'button';
+  [head, chips, list, none, shopHead, shop, shopNone, copyBtn].forEach(function (n) { box.appendChild(n); });
+  pane.appendChild(box);
+
+  [['all', 'Alle'], ['owned', 'Besitze ich'], ['buy', 'Einkaufsliste'], ['open', 'Offen']].forEach(function (f) {
+    var c = el('button', 'ax-chip', f[1]); c.type = 'button'; c.setAttribute('aria-pressed', String(f[0] === filter));
+    c.addEventListener('click', function () { filter = f[0]; Array.prototype.forEach.call(chips.children, function (x) { x.setAttribute('aria-pressed', String(x === c)); }); draw(); });
+    chips.appendChild(c);
+  });
+
+  function items() { var a = []; try { a = P.items() || []; } catch (e) {} return a.filter(function (i) { return i && typeof i.id === 'string'; }); }
+  function links() { var m = {}; try { (P.catalog() || []).forEach(function (c) { if (c.link && /^https?:\/\//.test(c.link)) m[c.name] = c.link; }); } catch (e) {} return m; }
+  function size(it) { return Math.round(it.w * 100) + ' × ' + Math.round(it.d * 100) + ' × ' + Math.round(it.h * 100) + ' cm'; }
+  function set(it, patch) { try { P.updateItem(it.id, patch); } catch (e) {} }
+  function mark(label, on, title, fn) {
+    var b = el('button', 'ax-chip axv-mark', label); b.type = 'button'; b.setAttribute('aria-pressed', String(!!on)); b.title = title;
+    b.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
+    return b;
+  }
+  function shopping(all) {       // one line per product, with its count
+    var by = {}, order = [];
+    all.forEach(function (it) { if (it.buy !== true || it.owned === true) return; var n = it.name || 'Möbelstück'; if (!by[n]) { by[n] = { name: n, n: 0, size: size(it) }; order.push(n); } by[n].n++; });
+    return order.map(function (n) { return by[n]; });
+  }
+
+  function draw() {
+    var all = items(), sel = null, L = links(); try { sel = P.selected(); } catch (e) {}
+    var nOwn = all.filter(function (i) { return i.owned === true; }).length;
+    head.textContent = 'Möbel in dieser Einrichtung (' + all.length + ')' + (nOwn ? ', ' + nOwn + ' besitze ich' : '');
+    var show = all.filter(function (i) { return filter === 'all' || (filter === 'owned' && i.owned === true) || (filter === 'buy' && i.buy === true && i.owned !== true) || (filter === 'open' && i.owned !== true && i.buy !== true); });
+    list.textContent = '';
+    show.forEach(function (it) {
+      var li = el('li', 'axv-row'), name = el('button', 'axv-name', ''), marks = el('span', 'axv-marks');
+      name.type = 'button'; name.appendChild(el('span', 'axv-title', it.name || 'Möbelstück')); name.appendChild(el('span', 'ax-muted axv-size', size(it)));
+      if (it.id === sel) li.classList.add('axv-on');
+      name.addEventListener('click', function () { try { P.select(it.id); } catch (e) {} });
+      marks.appendChild(mark('Habe ich', it.owned === true, 'Besitze ich schon', function () { set(it, it.owned === true ? { owned: false } : { owned: true, buy: false }); }));
+      marks.appendChild(mark('Kaufen', it.buy === true && it.owned !== true, 'Auf die Einkaufsliste setzen', function () { set(it, it.buy === true ? { buy: false } : { buy: true, owned: false }); }));
+      li.appendChild(name); li.appendChild(marks); list.appendChild(li);
+    });
+    none.hidden = !!show.length; none.textContent = all.length ? 'Kein Möbelstück in dieser Auswahl.' : 'In dieser Einrichtung stehen noch keine Möbel.';
+    var S = shopping(all); shop.textContent = '';
+    S.forEach(function (s) {
+      var li = el('li', 'axv-row'), t = el('span', 'axv-name'), a;
+      t.appendChild(el('span', 'axv-title', (s.n > 1 ? s.n + ' × ' : '') + s.name)); t.appendChild(el('span', 'ax-muted axv-size', s.size));
+      li.appendChild(t);
+      if (L[s.name]) { a = el('a', 'axv-link', 'Zum Shop ↗'); a.href = L[s.name]; a.target = '_blank'; a.rel = 'noopener noreferrer'; li.appendChild(a); }
+      shop.appendChild(li);
+    });
+    shopNone.hidden = !!S.length; copyBtn.hidden = !S.length;
+  }
+  copyBtn.addEventListener('click', function () {
+    var L = links(), text = shopping(items()).map(function (s) { return (s.n > 1 ? s.n + ' × ' : '') + s.name + ' (' + s.size + ')' + (L[s.name] ? '\n  ' + L[s.name] : ''); }).join('\n');
+    UI.copy('Einkaufsliste\n' + text).then(function (ok) { UI.toast(ok ? 'Einkaufsliste kopiert.' : 'Kopieren hat nicht geklappt.'); }, function () {});
+  });
+  // ---- Take pieces from another variant
+  var takeHead = el('h3', 'ax-h', 'Aus anderer Variante übernehmen'), takeSel = el('select', 'ax-input'), takeList = el('ul', 'ax-list axv-take'), takeBtn = el('button', 'ax-btn primary', 'Übernehmen'), takeNote = el('p', 'ax-muted', ''), takeBox = el('div', 'ax-stack');
+  takeBtn.type = 'button'; takeSel.setAttribute('aria-label', 'Variante'); takeNote.setAttribute('role', 'status');
+  [takeHead, el('p', 'ax-muted', 'Hake an, was du aus einer anderen Variante in die Einrichtung auf dem Bildschirm stellen willst. Was im Weg steht, wird entfernt, ausser du besitzt es schon. Vorher wird eine Kopie angelegt.'), takeSel, takeList, takeBtn, takeNote].forEach(function (n) { takeBox.appendChild(n); });
+  box.appendChild(takeBox);
+  var picked = {}, shownVar = '';
+  function variants() { try { return (P.variants && P.variants().others) || []; } catch (e) { return []; } }
+  function drawTake() {
+    var V = variants(), keep = takeSel.value; takeBox.hidden = !V.length; if (!V.length) return;
+    takeSel.textContent = ''; V.forEach(function (v, i) { var o = el('option', '', v.name); o.value = String(i); takeSel.appendChild(o); });
+    if (keep && +keep < V.length) takeSel.value = keep;
+    var v = V[+takeSel.value] || V[0]; if (v.name !== shownVar) { picked = {}; shownVar = v.name; }
+    takeList.textContent = '';
+    v.items.forEach(function (it) {
+      var li = el('li', 'axv-row'), lab = el('label', 'axv-pick'), cb = el('input', ''); cb.type = 'checkbox'; cb.checked = !!picked[it.id];
+      cb.addEventListener('change', function () { if (cb.checked) picked[it.id] = 1; else delete picked[it.id]; takeBtn.disabled = !Object.keys(picked).length; });
+      lab.appendChild(cb); var t = el('span', 'axv-name'); t.appendChild(el('span', 'axv-title', it.name || 'Möbelstück')); t.appendChild(el('span', 'ax-muted axv-size', size(it))); lab.appendChild(t);
+      li.appendChild(lab); takeList.appendChild(li);
+    });
+    takeBtn.disabled = !Object.keys(picked).length;
+  }
+  takeSel.addEventListener('change', drawTake);
+  takeBtn.addEventListener('click', function () {
+    var r = null; try { r = P.takeFromVariant(+takeSel.value, Object.keys(picked)); } catch (e) {}
+    if (!r) { takeNote.textContent = 'Das hat nicht geklappt. Es gibt höchstens 12 Varianten: Lösche eine und versuche es nochmals.'; return; }
+    picked = {};
+    takeNote.textContent = r.added + (r.added === 1 ? ' Stück' : ' Stücke') + ' übernommen.' + (r.removed.length ? ' Entfernt: ' + r.removed.join(', ') + '.' : '') + ' Der Stand von vorher liegt als «' + r.backup + '» bei den Varianten.';
+  });
+  function later() { clearTimeout(timer); timer = setTimeout(function () { draw(); drawTake(); }, 150); }
+  ['items', 'flat', 'remote', 'select', 'account'].forEach(function (ev) { try { P.on(ev, later); } catch (e) {} });
+  draw(); drawTake();
+  window.AppInventory = { shopping: function () { return shopping(items()); } };
 })();
 
 </script>
