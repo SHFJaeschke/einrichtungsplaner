@@ -1214,6 +1214,30 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
 (function () {
   const KEY = window.PLANNER_BACKEND ? 'planer-app-v1' : 'planer-v2';
   const CATALOG = [
+    { type: 'glb', src: 'blok.json', fallback: 'sofa', yaw: 0, name: 'Sofa Blok 240 Chenille beige (Kave Home)', w: 2.4, d: 1.0, h: 0.69, color: '#d9cdb8' },
+    { type: 'tub', name: 'Drehsessel Odenia Bouclé braun (Kave Home)', w: 0.8, d: 0.86, h: 0.72, color: '#5a4636' },
+    { type: 'tub', name: 'Drehsessel Davik Bouclé dunkelgrün (Beliani)', w: 0.62, d: 0.63, h: 0.67, color: '#5d6650' },
+    { type: 'pouf', name: 'Bouclé-Hocker Alto Off White (Westwing)', w: 0.42, d: 0.42, h: 0.47, color: '#ece6d8' },
+    { type: 'ctable', name: 'Esstisch Nealy rund Nussbaum dunkel 120 (Kave Home)', w: 1.2, d: 1.2, h: 0.75, color: '#5b3d2a' },
+    { type: 'mchair', name: 'Armlehnstuhl Meila Chenille beige (Kave Home)', w: 0.57, d: 0.52, h: 0.79, color: '#d9cfbe' },
+    { type: 'sboard', name: 'Sideboard Rixo Walnuss 180 (home24)', w: 1.8, d: 0.4, h: 0.8, color: '#7b5235', doors: 4 },
+    { type: 'sboard', name: 'Sideboard Tonstad Eiche braun 121 (IKEA)', w: 1.21, d: 0.47, h: 0.9, color: '#6a4a36', doors: 3 },
+    { type: 'sboard', name: 'Wandkonsole EKET Nussbaum 140 (IKEA)', w: 1.4, d: 0.35, h: 0.35, elev: 0.62, color: '#7a5539', doors: 4, legs: false },
+    { type: 'hack', name: 'Schreibtisch EKET + Karlby Nussbaum 186 (IKEA-Hack)', w: 1.86, d: 0.635, h: 0.74, color: '#7a5539' },
+    { type: 'bed', mat: 'wood', name: 'Bett Tonstad Eiche braun 180 (IKEA)', w: 1.89, d: 2.09, h: 0.42, color: '#6a4a36' },
+    { type: 'box', mat: 'wood', name: 'Nachttisch Tonstad Eiche braun (IKEA)', w: 0.4, d: 0.4, h: 0.59, color: '#6a4a36' },
+    { type: 'paxw', name: 'PAX/Tonstad Schrank 250 Eiche braun (IKEA)', w: 2.5, d: 0.6, h: 2.36, color: '#6f4f3a', doors: 5 },
+    { type: 'rug', name: 'Teppich Marely Wolle weiss 200 x 300 (Kave Home)', w: 3.0, d: 2.0, h: 0.012, color: '#e9e3d6', melange: 'soft' },
+    { type: 'rug', name: 'Teppich Stoense elfenbein 200 x 300 (IKEA)', w: 3.0, d: 2.0, h: 0.018, color: '#e6dfd0', melange: 'soft' },
+    { type: 'moch', name: 'Tischleuchte Arenys gold (Kave Home)', w: 0.16, d: 0.16, h: 0.4, color: '#c9a35a' },
+    { type: 'moch', name: 'Akku-Tischleuchte Mush schwarz (Hübsch)', w: 0.15, d: 0.15, h: 0.2, color: '#1c1c1c' },
+    { type: 'lamp', name: 'Stehlampe Lilly Opalglas (Westwing)', w: 0.3, d: 0.3, h: 1.5, color: '#f4efe4' },
+    { type: 'wlamp', kind: 'gino', name: 'Wandleuchte Grant Opalglas mit Stecker (Westwing)', w: 0.15, d: 0.21, h: 0.18, elev: 1.45, color: '#b8975a' },
+    { type: 'mirror', name: 'Ganzkörperspiegel Francis gold 65 x 170 (Westwing)', w: 0.65, d: 0.03, h: 1.7, elev: 0.02, color: '#b8975a' },
+    { type: 'mirror', name: 'Spiegel Lindbyn rund schwarz 80 (IKEA)', w: 0.8, d: 0.03, h: 0.8, elev: 1.1, color: '#151515' },
+    { type: 'art', name: 'Bild Arilan abstrakt 100 x 100 (Kave Home)', w: 1.0, d: 0.05, h: 1.0, elev: 1.15, color: '#d8ccb6' },
+    { type: 'curtain', name: 'Gardinenstore Hällebräcka hellbeige (IKEA)', w: 1.45, d: 0.1, h: 2.45, color: '#ece3d2' },
+    { type: 'curtain', name: 'Vorhang Vilborg graubeige abdunkelnd (IKEA)', w: 1.45, d: 0.12, h: 2.45, color: '#8c7f6c' },
     { type: 'ovo', name: 'Ecksofa Ovo (home24)', w: 2.6, d: 1.65, h: 0.93, color: '#eadfc6', side: 'left', chaiseW: 1.16, mainD: 0.83, seatH: 0.43, armW: 0.22, armH: 0.65 },
     { type: 'glb', src: 'hudson.json', yaw: 0, name: 'Ecksofa Hudson (home24)', w: 2.6, d: 1.73, h: 0.71, color: '#cdbfa8', side: 'left', chaiseW: 1.0, mainD: 1.02, seatH: 0.38, armW: 0.24, armH: 0.6, legH: 0.02, seats: 2 },
     { type: 'sofa', name: 'Sofa 2er', w: 1.7, d: 0.9, h: 0.8, color: '#b9b2a3' },
@@ -1289,6 +1313,15 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   function uid() { return Math.random().toString(36).slice(2, 9); }
   // Product pages for the pieces that exist to buy, by catalogue name (so furniture already placed gets its link too).
   const H24 = 'https://www.home24.ch/de/produkt/', LINKS = {
+    'Sofa Blok 240 Chenille beige (Kave Home)': 'https://kavehome.com/ch/de/p/3-sitzer-sofa-blok-mit-beiger-chenille-240-cm-fsc-mix-credit',
+    'Drehsessel Odenia Bouclé braun (Kave Home)': 'https://kavehome.com/ch/de/p/drehsessel-odenia-mit-braunem-micro-boucle-fsc-mix-credit',
+    'Bouclé-Hocker Alto Off White (Westwing)': 'https://www.westwing.ch/boucle-hocker-alto-134450.html',
+    'Esstisch Nealy rund Nussbaum dunkel 120 (Kave Home)': 'https://kavehome.com/ch/de/p/nealy-runder-tisch-aus-nussbaumfurnier-mit-dunklem-finish-o-120-cm',
+    'Armlehnstuhl Meila Chenille beige (Kave Home)': 'https://kavehome.com/ch/de/p/armlehnenstuhl-meila-mit-beiger-chenille-und-beinen-aus-massivem-eschenholz-mit-nussbaumfinish',
+    'Sideboard Rixo Walnuss 180 (home24)': 'https://www.home24.ch/de/produkt/sideboard-rixo-echtholzfurnier-walnuss',
+    'Bett Tonstad Eiche braun 180 (IKEA)': 'https://www.ikea.com/ch/de/p/tonstad-bettgestell-mit-schubladen-braun-gebeiztes-eichenfurnier-60489182/',
+    'Teppich Marely Wolle weiss 200 x 300 (Kave Home)': 'https://kavehome.com/ch/de/p/marely-teppich-aus-wolle-in-weiss-200-x-300-cm',
+    'Teppich Stoense elfenbein 200 x 300 (IKEA)': 'https://www.ikea.com/ch/de/p/stoense-teppich-kurzflor-elfenbeinweiss-20426808/',
     'Ecksofa Ovo (home24)': H24 + 'ecksofa-ovo-mit-schlaffunktion-typ-a-strukturstoff-purna-creme-longchair-davorstehend-links',
     'Ecksofa Hudson (home24)': H24 + 'ecksofa-hudson-1-5-sitzer-mit-longchair-webstoff-saia-beige-longchair-davorstehend-links',
     'Hocker Hudson (home24)': H24 + 'polsterhocker-hudson',
@@ -1668,10 +1701,14 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   } catch (e) {}
   // Render quality: the saved choice wins, otherwise keep what Realism picked for this device.
   if (S.quality === 'low' || S.quality === 'high') Realism.setQuality(S.quality); else delete S.quality;
+  // Furnishing variants: a flat can hold several arrangements side by side. cur.items is the one on screen
+  // (its name is cur.vname); the others wait in cur.variants = [{ name, items }].
+  function okVariants(v) { return (Array.isArray(v) ? v : []).filter(x => x && typeof x === 'object' && typeof x.name === 'string' && Array.isArray(x.items)).slice(0, 12).map(x => ({ name: x.name.slice(0, 60), items: okItems(x.items) })); }
   function ensure(id) {
     const A = APTS[id];
     if (!S.data[id] || !Array.isArray(S.data[id].items) || S.data[id].rev !== A.rev) { const P = Object.assign({}, A.defP); S.data[id] = { P, items: A.items(P), rev: A.rev }; }
     else S.data[id].P = Object.assign({}, A.defP, S.data[id].P);
+    S.data[id].variants = okVariants(S.data[id].variants); if (typeof S.data[id].vname !== 'string' || !S.data[id].vname) S.data[id].vname = 'Meine Einrichtung';
     return S.data[id];
   }
   Object.keys(S.data).forEach(k => (S.data[k].items || []).forEach(it => { if (it.type === 'mbed' && it.name === 'Polsterbett Mattis 160 (home24)') { it.name = 'Polsterbett Mattis 180 (home24)'; it.w = 2.0; } }));
@@ -2260,7 +2297,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   function buildItem(it) {
     const g = new THREE.Group(), { w, d, h } = it;
     const KIND = { sofa: 'fabric', lsofa: 'fabric', bed: 'fabric', pbed: 'fabric', mbed: 'fabric', prbed: 'fabric', pouf: 'fabric', ovo: 'fabric', achair: 'fabric', atable: 'wood', rtable: 'wood', otable: 'wood', ctable: 'wood', slat: 'wood', hack: 'wood', chest: 'wood', toome: 'wood', ledge: 'wood', vino: 'wood', rug: 'rug', plant: 'plant', lamp: 'shade' };
-    const m = M(it.color, KIND[it.type]);  // tables, chairs, shelves, boxes: wood or lacquer by colour
+    const m = M(it.color, { wood: 1, fabric: 1, boucle: 1, lacquer: 1, stone: 1, steel: 1 }[it.mat] ? it.mat : KIND[it.type]);  // tables, chairs, shelves, boxes: wood or lacquer by colour
     const leg = M(0x3a3a3a, 'metal');
     if (it.type === 'sofa') {
       const sh = Math.min(0.42, h * 0.55), arm = Math.min(0.18, w * 0.15), bk = Math.min(0.22, d * 0.28);
@@ -2573,6 +2610,22 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       buildPrimo(g, it);
     } else if (it.type === 'mbed') {
       buildMattis(g, it);
+    } else if (it.type === 'tub') {
+      // Swivel tub chair in boucle: round plinth, drum seat and a wrap-around back that is open to the front (+z)
+      const r = Math.min(w, d) / 2, fab = M(it.color, 'boucle'), sy = h * 0.5;
+      const cyl = (rt, rb, hh, y) => { const me = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, hh, 40), fab); me.position.y = y; g.add(me); return me; };
+      cyl(r * 0.6, r * 0.66, h * 0.1, h * 0.05); cyl(r * 0.94, r * 0.8, sy - h * 0.1, h * 0.1 + (sy - h * 0.1) / 2); cyl(r * 0.74, r * 0.78, 0.07, sy + 0.035);
+      const sh = new THREE.Shape(), a0 = -0.45, a1 = Math.PI + 0.45, ri = r * 0.78;
+      sh.absarc(0, 0, r, a0, a1, false); sh.absarc(0, 0, ri, a1, a0, true); sh.closePath();
+      const bg = new THREE.ExtrudeGeometry(sh, { depth: h - sy - 0.03, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.025, bevelSegments: 3, curveSegments: 28 });
+      bg.rotateX(-Math.PI / 2); const back = new THREE.Mesh(bg, fab); back.position.y = sy; g.add(back);
+    } else if (it.type === 'sboard') {
+      // Sideboard or wall console in veneer: plain doors with fine joints and small black handles, on slim black legs
+      const legs = it.legs !== false, lg = legs ? Math.min(0.14, h * 0.2) : 0, n = Math.max(1, it.doors || Math.round(w / 0.45)), wood = M(it.color, 'wood'), blk = M(0x1a1a1a, 'steel');
+      box(g, w, h - lg, d, 0, lg + (h - lg) / 2, 0, wood);
+      for (let i = 1; i < n; i++) box(g, 0.004, h - lg - 0.03, 0.004, -w / 2 + w * i / n, lg + (h - lg) / 2, d / 2 + 0.001, M(0x2a1d14, 'steel'));
+      for (let i = 0; i < n; i++) box(g, 0.012, 0.05, 0.012, -w / 2 + w * (i + (i % 2 ? 0.12 : 0.88)) / n, h - 0.09, d / 2 + 0.007, blk);
+      if (legs) [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(q => box(g, 0.03, lg, 0.03, q[0] * (w / 2 - 0.06), lg / 2, q[1] * (d / 2 - 0.05), blk));
     } else if (it.type === 'pouf') {
       buildPouf(g, it);
     } else if (it.type === 'plant') {
@@ -2723,6 +2776,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   function showApt(id, keepView) {
     S.apt = id; A = APTS[id]; cur = ensure(id);
     if (ziRow) ziBuild();
+    if (typeof varBuild === 'function') { try { varBuild(); } catch (e) {} }
     $('aptSel').value = id; $('aptTitle').textContent = A.title; $('aptSub').textContent = A.sub; $('aptNote').textContent = A.note;
     renderFields(); select(null); buildApartment(); rebuildAll(); save();
     if (RV.on) RV.aptChanged();
@@ -3402,7 +3456,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   // everyone the page is shared with sees the same arrangement. Browser storage stays as the offline copy.
   // Each flat is one document (layouts/<id>: {rev, P, items, t}); the newer of local and stored wins.
   Cloud = BACKEND ? backendCloud() : (() => {
-    const strip = d => JSON.stringify({ P: d.P, items: d.items });
+    const strip = d => JSON.stringify({ P: d.P, items: d.items, variants: d.variants || [], vname: d.vname || '' });
     const last = {}, busy = {}, again = {}, seen = {}; let db = null, readOnly = false, timer = 0;
     const note = document.createElement('p');
     note.style.cssText = 'margin:8px 0 0;font-size:12px;opacity:.7'; note.textContent = 'Möbel sind auf diesem Gerät gespeichert.';
@@ -3420,7 +3474,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       if (busy[id]) { again[id] = true; return; }
       const js = strip(d); if (js === last[id]) return;
       busy[id] = true;
-      db.doc('layouts/' + id).set({ rev: d.rev, t: d.t || 0, P: d.P, items: JSON.parse(JSON.stringify(d.items)) }).then(() => {
+      db.doc('layouts/' + id).set({ rev: d.rev, t: d.t || 0, P: d.P, items: JSON.parse(JSON.stringify(d.items)), variants: JSON.parse(JSON.stringify(d.variants || [])), vname: d.vname || '' }).then(() => {
         last[id] = js; say('Möbel sind für alle Geräte gespeichert.');
       }, e => {
         if (e && e.code === 'invalid_argument') { readOnly = true; say('Nur Ansicht: Deine Änderungen bleiben auf diesem Gerät.'); }
@@ -3435,7 +3489,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       if (d && strip(d) === js) { last[id] = js; say('Möbel sind für alle Geräte gespeichert.'); return; }
       if (d && (d.t || 0) > (r.t || 0)) { push(id); return; }
       if (drag) return;
-      S.data[id] = { P: JSON.parse(JSON.stringify(r.P || {})), items: JSON.parse(JSON.stringify(r.items)), rev: r.rev, t: r.t || 0 };
+      S.data[id] = { P: JSON.parse(JSON.stringify(r.P || {})), items: JSON.parse(JSON.stringify(r.items)), rev: r.rev, t: r.t || 0, variants: okVariants(JSON.parse(JSON.stringify(r.variants || []))), vname: typeof r.vname === 'string' ? r.vname : '' };
       last[id] = js; seen[id] = js;
       if (fixItems(S.data[id].items)) { S.data[id].t = Date.now(); seen[id] = strip(S.data[id]); push(id); }
       saveLocal(); say('Möbel sind für alle Geräte gespeichert.');
@@ -3506,7 +3560,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     };
   }
   function backendCloud() {
-    const strip = d => JSON.stringify({ P: d.P, items: d.items });
+    const strip = d => JSON.stringify({ P: d.P, items: d.items, variants: d.variants || [], vname: d.vname || '' });
     const seen = {}, last = {}, busy = {}, again = {}, level = {}, shares = {}; let sb = null, user = null, timer = 0;   // level: owner | edit | view
     const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
     const names = {}; let loaded = false;       // loaded: the signed-in person's flats have arrived
@@ -3553,7 +3607,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       const L = r.layout, d = S.data[r.id], lt = stamp(L);
       // try-outs made while a flat was view-only stay local and never overwrite the account once editing is allowed
       const stale = d && d.ro && level[r.id] !== 'view', localNewer = !stale && d && Array.isArray(d.items) && d.rev === A0.rev && (d.t || 0) > lt;
-      if (L && Array.isArray(L.items) && !localNewer) { S.data[r.id] = { P: okP(L.P), items: okItems(L.items), rev: A0.rev, t: lt }; fixItems(S.data[r.id].items); last[r.id] = strip(S.data[r.id]); }
+      if (L && Array.isArray(L.items) && !localNewer) { S.data[r.id] = { P: okP(L.P), items: okItems(L.items), rev: A0.rev, t: lt, variants: okVariants(L.variants), vname: typeof L.vname === 'string' ? L.vname : '' }; fixItems(S.data[r.id].items); last[r.id] = strip(S.data[r.id]); }
       if (S.data[r.id]) seen[r.id] = strip(S.data[r.id]);
       if (localNewer && !d.ro) setTimeout(() => push(r.id), 0);
       return true;
@@ -3598,7 +3652,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       if (busy[id]) { again[id] = true; return Promise.resolve(false); }
       const js = strip(d); if (js === last[id]) return Promise.resolve(true);
       busy[id] = true;
-      return sb.from('flats').update({ layout: { P: d.P, items: d.items, t: d.t || 0 } }).eq('id', id).select('id').then(r => {
+      return sb.from('flats').update({ layout: { P: d.P, items: d.items, t: d.t || 0, variants: d.variants || [], vname: d.vname || '' } }).eq('id', id).select('id').then(r => {
         let ok = false;
         if (r.error) say('Speichern im Konto ist gerade nicht möglich; die Änderung bleibt auf diesem Gerät.');
         else if (!r.data || !r.data.length) { if (level[id] !== 'owner') level[id] = 'view'; say('Nicht im Konto gespeichert: Du darfst diese Wohnung nicht (mehr) ändern. Die Änderung bleibt auf diesem Gerät.'); }
@@ -3619,10 +3673,10 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
         if (r.error || drag) return;
         r.data.forEach(f => {
           const L = f.layout, d = S.data[f.id]; if (!APTS[f.id] || !L || !Array.isArray(L.items) || busy[f.id]) return;
-          const lt = stamp(L), inc = { P: okP(L.P), items: okItems(L.items) };
+          const lt = stamp(L), inc = { P: okP(L.P), items: okItems(L.items), variants: okVariants(L.variants), vname: typeof L.vname === 'string' ? L.vname : '' };
           if (d && !d.ro && ((d.t || 0) >= lt || strip(d) === strip(inc))) return;
           if (d && d.ro && level[f.id] === 'view' && (d.t || 0) >= lt) return;
-          S.data[f.id] = { P: inc.P, items: inc.items, rev: APTS[f.id].rev, t: lt }; fixItems(S.data[f.id].items);
+          S.data[f.id] = { P: inc.P, items: inc.items, rev: APTS[f.id].rev, t: lt, variants: inc.variants, vname: inc.vname }; fixItems(S.data[f.id].items);
           last[f.id] = seen[f.id] = strip(S.data[f.id]); saveLocal();
           if (f.id === S.apt) { cur = ensure(f.id); renderFields(); select(null); buildApartment(); rebuildAll(); if (RV.on) RV.aptChanged(); emit('remote'); }
         });
@@ -3664,10 +3718,10 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
         // plan and rescaled furniture go in ONE request, so they can never disagree in the account
         const d0 = S.data[id], t = Date.now(), f = opts && typeof opts.scaleItems === 'number' && isFinite(opts.scaleItems) && opts.scaleItems > 0.01 && opts.scaleItems < 100 ? opts.scaleItems : 1;
         const scaled = d0 && Array.isArray(d0.items) && f !== 1 ? d0.items.map(it => Object.assign({}, it, { x: +(it.x * f).toFixed(3), z: +(it.z * f).toFixed(3) })) : null;
-        return sb.from('flats').update(scaled ? { plan: clean, layout: { P: d0.P, items: scaled, t: t } } : { plan: clean }).eq('id', id).select('id').then(q => {
+        return sb.from('flats').update(scaled ? { plan: clean, layout: { P: d0.P, items: scaled, t: t, variants: (d0.variants || []).map(v => ({ name: v.name, items: v.items.map(it => Object.assign({}, it, { x: +(it.x * f).toFixed(3), z: +(it.z * f).toFixed(3) })) })), vname: d0.vname || '' } } : { plan: clean }).eq('id', id).select('id').then(q => {
           fail(q, 'Der Grundriss konnte nicht gespeichert werden'); if (!q.data.length) throw new Error('Nur der Besitzer kann den Grundriss ändern.');
           APTS[id] = aptFromPlan(clean, names[id] || clean.title);
-          const d = S.data[id]; if (scaled && d) { d.items = scaled; d.t = t; delete d.ro; last[id] = seen[id] = strip(d); }
+          const d = S.data[id]; if (scaled && d) { (d.variants || []).forEach(v => v.items.forEach(it => { it.x = +(it.x * f).toFixed(3); it.z = +(it.z * f).toFixed(3); })); d.items = scaled; d.t = t; delete d.ro; last[id] = seen[id] = strip(d); }
           refreshAptSel();
           if (S.apt === id) showApt(id, true); else saveLocal();
           if (scaled && S.apt === id) emit('remote');       // furniture changed from outside the person's own edits: undo history starts afresh
@@ -3805,6 +3859,40 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     if (C.hint) { const p = document.createElement('p'); p.style.cssText = 'margin:6px 0 0;font-size:12px;opacity:.7'; p.textContent = C.hint; ziRow.appendChild(p); }
     ziMark();
   }
+  // ---- Variants panel
+  const varRow = document.createElement('section');
+  function varBuild() {
+    varRow.textContent = '';
+    const mk2 = (tag, text, css) => { const e = document.createElement(tag); if (text) e.textContent = text; if (css) e.style.cssText = css; return e; };
+    varRow.appendChild(mk2('h2', 'Einrichtungs-Varianten'));
+    const st = mk2('div', '', 'display:flex;flex-direction:column;gap:8px'); varRow.appendChild(st);
+    const lab = mk2('label'); lab.className = 'f'; lab.textContent = 'Auf dem Bildschirm';
+    const sel = document.createElement('select'); [cur.vname].concat(cur.variants.map(v => v.name)).forEach((n, i) => { const o = document.createElement('option'); o.value = String(i - 1); o.textContent = n; sel.appendChild(o); });
+    lab.appendChild(sel); st.appendChild(lab);
+    sel.addEventListener('change', () => {       // the arrangement on screen goes back into the list, the chosen one comes out
+      const k = +sel.value; if (!(k >= 0) || !cur.variants[k]) return;
+      const next = cur.variants.splice(k, 1)[0]; cur.variants.unshift({ name: cur.vname, items: cur.items });
+      cur.items = next.items; cur.vname = next.name; select(null); rebuildAll(); save(); emit('remote'); varBuild(); if (ziRow) ziMark();
+    });
+    const row = mk2('div', '', 'display:flex;gap:6px;flex-wrap:wrap;align-items:end');
+    const nl = mk2('label'); nl.className = 'f'; nl.textContent = 'Name für eine Kopie'; const ni = document.createElement('input'); ni.type = 'text'; ni.maxLength = 60; ni.placeholder = 'z. B. Mit hellem Sofa'; nl.appendChild(ni);
+    const cp = mk2('button', 'Kopie anlegen'); cp.className = 'act';
+    cp.addEventListener('click', () => {
+      const n = ni.value.trim(); if (!n) { ni.focus(); return; } if (cur.variants.length >= 11) return;
+      cur.variants.unshift({ name: cur.vname, items: JSON.parse(JSON.stringify(cur.items)) }); cur.vname = n; save(); varBuild();
+    });
+    row.appendChild(nl); row.appendChild(cp); st.appendChild(row);
+    if (cur.variants.length) {
+      const del = mk2('button', 'Diese Variante löschen'); del.className = 'act danger'; let armed = false;
+      del.addEventListener('click', () => {
+        if (!armed) { armed = true; del.textContent = 'Wirklich löschen? Nochmals klicken'; setTimeout(() => { armed = false; del.textContent = 'Diese Variante löschen'; }, 4000); return; }
+        const next = cur.variants.shift(); cur.items = next.items; cur.vname = next.name; select(null); rebuildAll(); save(); emit('remote'); varBuild();
+      });
+      st.appendChild(del);
+    }
+    st.appendChild(mk2('p', 'Eine Kopie ist ein eigener Stand derselben Wohnung. So probierst du etwas aus, ohne die bisherige Einrichtung zu verlieren.', 'margin:0;font-size:12px;opacity:.7'));
+  }
+  $('reset').parentNode.parentNode.insertBefore(varRow, $('reset').parentNode);
   ziRow = document.createElement('section');
   $('reset').parentNode.parentNode.insertBefore(ziRow, $('reset').parentNode);
   ziRow.addEventListener('click', e => { const b = e.target.closest('[data-zi]'); if (b) ziConcept(+b.dataset.zi); });
@@ -3814,7 +3902,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   const clone = o => JSON.parse(JSON.stringify(o));
   // Shape templates for pieces that are not in the catalogue: the look of an existing builder with free size,
   // colour and name. This is how a piece seen on a photo gets modelled.
-  const SHAPES = [['box', 'Kasten, Sideboard, Kommode'], ['sofa', 'Sofa'], ['ovo', 'Ecksofa mit Longchair'], ['mchair', 'Sessel oder Polsterstuhl mit Armlehnen'],
+  const SHAPES = [['box', 'Kasten, Kommode'], ['sboard', 'Sideboard mit Türen'], ['tub', 'Drehsessel rund'], ['pouf', 'Hocker rund'], ['sofa', 'Sofa'], ['ovo', 'Ecksofa mit Longchair'], ['mchair', 'Sessel oder Polsterstuhl mit Armlehnen'],
     ['chair', 'Stuhl'], ['ochair', 'Bürostuhl'], ['table', 'Tisch eckig'], ['rtable', 'Tisch rund'], ['ctable', 'Tisch rund mit Säulenfuss'], ['gtable', 'Glastisch rund'],
     ['prbed', 'Polsterbett mit Kopfteil'], ['bed', 'Bett schlicht'], ['paxw', 'Schrankwand'], ['toome', 'Offenes Regal'], ['elon', 'Kommode mit Schubladen'], ['hack', 'Schreibtisch'],
     ['lamp', 'Stehlampe mit Schirm'], ['yava', 'Stehleuchte schlank'], ['arc', 'Bogenleuchte'], ['moch', 'Tischleuchte'], ['wlamp', 'Wandleuchte'],
@@ -4018,7 +4106,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       function part(f, t) { var m = at((f + t) / 2), o = box(m[0], m[1], t - f, TH * s, u[0], u[1]); o.p0 = at(f); o.p1 = at(t); return o; }
       function solid(f, t) { if (t - f > 0.02) { var o = part(f, t); o.wall = true; G.walls.push(o); } }
       arr(w.ops).filter(function (o) { return o && num(o.f) && num(o.t) && o.t > o.f; })
-        .map(function (o) { return { f: Math.max(0, o.f * s), t: Math.min(L, o.t * s), walk: !o.glass || !(o.sill > 0) }; })
+        .map(function (o) { return { f: Math.max(0, o.f * s), t: Math.min(L, o.t * s), walk: !o.fixed && (!o.glass || !(o.sill > 0)) }; })
         .filter(function (o) { return o.t > o.f; })
         .sort(function (x, y) { return x.f - y.f; })
         .forEach(function (o) {
