@@ -1277,6 +1277,7 @@ span.axv-name { cursor: default; }
     { type: 'atable', name: 'Esstisch Nussbaum 200', w: 2.0, d: 0.95, h: 0.75, color: '#7a5236' },
     { type: 'achair', name: 'Armlehnstuhl Alison (Westwing)', w: 0.58, d: 0.59, h: 0.89, color: '#8d8578' },
     { type: 'table', name: 'Esstisch', w: 1.6, d: 0.9, h: 0.75, color: '#a8794a' },
+    { type: 'chair', kind: 'hagan', name: 'Esszimmerstuhl Hagan Walnuss hellgrau (home24)', w: 0.47, d: 0.53, h: 0.81, color: '#cfcdc8', wood: '#6f4a38' },
     { type: 'chair', name: 'Stuhl', w: 0.45, d: 0.5, h: 0.85, color: '#e3e1da' },
     { type: 'pbed', name: 'Bett Lennon 180 (Westwing)', w: 2.48, d: 2.43, h: 0.92, color: '#ece8df', rail: 0.18, frameH: 0.35, headD: 0.24 },
     { type: 'glb', src: 'holmerud.json', fallback: 'box', yaw: 0, name: 'Beistelltisch Holmerud (IKEA)', w: 0.805, d: 0.307, h: 0.523, color: '#3d2f28' },
@@ -1365,6 +1366,7 @@ span.axv-name { cursor: default; }
     'Esstisch Taylor rund Eiche (home24)': H24 + 'esstisch-taylor-eiche-teilmassiv',
     'Esstisch Qara rund Esche schwarz (home24)': H24 + 'esstisch-qara-rund-esche-teilmassiv-esche-schwarz-durchmesser-120-cm-8ba7',
     'Esstisch Olson rund Walnuss (home24)': H24 + 'esstisch-olson-gummibaum-teilmassiv-walnuss',
+    'Esszimmerstuhl Hagan Walnuss hellgrau (home24)': H24 + 'esszimmerstuhl-hagan-lichtgrau-2er-set',
     'Armlehnstuhl Mesita (home24)': H24 + 'armlehnenstuhl-mesita-2er-set-boucle-stoff-moena-beige-eiche-natur',
     'Armlehnstuhl Alison (Westwing)': 'https://www.westwing.ch/drehbare-armlehnstuehle-alison-2-stueck-164891.html',
     'Bett Lennon 180 (Westwing)': 'https://www.westwing.ch/boucle-polsterbett-lennon-mit-stauraum-159518.html',
@@ -2381,6 +2383,28 @@ span.axv-name { cursor: default; }
   // Sideboard home24 "Rixo" (180 x 40 x 80 cm), after the product photos: walnut veneer body floating 20 cm above the
   // floor on two slim black iron frames. Left two thirds: two doors; right third: an open compartment with one shelf
   // above a drawer. Doors and drawer carry a chevron veneer in upright bands; small black pulls sit at their top edge.
+  // Dining chair home24 "Hagan" (47 x 53 x 81 cm, seat at 46 cm), after the maker's sketch and photos: slim walnut-toned
+  // frame with splayed, tapering legs and a low side stretcher, a thick light-grey woven seat pad, and a wide curved
+  // plywood back shell with well-rounded corners, carried by the two rear uprights. Front faces +z.
+  function buildHagan(g, it) {
+    const s = new THREE.Group(); s.scale.set(it.w / 0.47, it.h / 0.81, it.d / 0.53); g.add(s);
+    const wood = M(it.wood || '#6f4a38', 'wood'), fab = M(it.color, 'fabric');
+    [-1, 1].forEach(q => {
+      strut(s, [q * 0.185, 0.4, 0.165], [q * 0.215, 0, 0.215], 0.017, 0.011, wood);       // front leg
+      strut(s, [q * 0.17, 0.4, -0.165], [q * 0.195, 0, -0.25], 0.017, 0.011, wood);       // rear leg
+      strut(s, [q * 0.15, 0.7, -0.225], [q * 0.17, 0.4, -0.165], 0.012, 0.016, wood);     // upright behind the shell
+      strut(s, [q * 0.2, 0.2, 0.19], [q * 0.183, 0.2, -0.208], 0.008, 0.008, wood);       // side stretcher
+    });
+    box(s, 0.39, 0.035, 0.35, 0, 0.385, 0, wood);
+    rbox(s, 0.45, 0.06, 0.4, 0, 0.432, 0.025, fab, 0.028);
+    const sh = new THREE.Shape(), bw = 0.43, bh = 0.3, r = 0.09;
+    sh.moveTo(-bw / 2 + r, -bh / 2); sh.lineTo(bw / 2 - r, -bh / 2); sh.quadraticCurveTo(bw / 2, -bh / 2, bw / 2, -bh / 2 + r); sh.lineTo(bw / 2, bh / 2 - r);
+    sh.quadraticCurveTo(bw / 2, bh / 2, bw / 2 - r, bh / 2); sh.lineTo(-bw / 2 + r, bh / 2); sh.quadraticCurveTo(-bw / 2, bh / 2, -bw / 2, bh / 2 - r); sh.lineTo(-bw / 2, -bh / 2 + r); sh.quadraticCurveTo(-bw / 2, -bh / 2, -bw / 2 + r, -bh / 2);
+    const ge = new THREE.ExtrudeGeometry(sh, { depth: 0.012, bevelEnabled: false, curveSegments: 10 }), pos = ge.attributes.position;
+    for (let i = 0; i < pos.count; i++) pos.setZ(i, pos.getZ(i) + 1.0 * pos.getX(i) * pos.getX(i));   // wraps around the sitter
+    ge.computeVertexNormals();
+    const shell = new THREE.Mesh(ge, wood); shell.castShadow = true; shell.receiveShadow = true; shell.position.set(0, 0.655, -0.235); shell.rotation.x = -0.13; s.add(shell);
+  }
   let rixoLines = null;
   function buildRixo(g, it) {
     const w = it.w, d = it.d, h = it.h, lg = Math.min(0.2, h * 0.25), t = 0.02, bh = h - lg, zf = d / 2, shade = k => '#' + new THREE.Color(it.color).multiplyScalar(k).getHexString();
@@ -2665,6 +2689,8 @@ span.axv-name { cursor: default; }
       const tt = Math.min(0.05, h * 0.3), l = 0.05;
       box(g, w, tt, d, 0, h - tt / 2, 0, m);
       [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(s => box(g, l, h - tt, l, s[0] * (w / 2 - 0.06), (h - tt) / 2, s[1] * (d / 2 - 0.06), m));
+    } else if (it.type === 'chair' && it.kind === 'hagan') {
+      buildHagan(g, it);
     } else if (it.type === 'chair') {
       const sh = Math.min(0.46, h * 0.55);
       box(g, w, 0.05, d, 0, sh, 0, m); box(g, w, h - sh, 0.04, 0, sh + (h - sh) / 2, -d / 2 + 0.02, m);
