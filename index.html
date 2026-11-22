@@ -210,6 +210,8 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   .ax-nav button, .ax-avatar { width: 44px; height: 44px; }
 }
 .ax-badge { font-size: 12px; }
+.ax-variant { flex: 0 1 200px; }
+@media (max-width: 760px) { .ax-variant { flex-basis: 130px; } }
 
 /* Account menu and its dialogs (stand-alone app only). Prefix axa-. */
 .axa-bar { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
@@ -2672,13 +2674,18 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     Realism.invalidate();
   }
   const sel = () => cur.items.find(i => i.id === selId);
+  // "I already own this": the mark travels with the piece into every variant, so a new design can start from it.
+  const ownBox = document.createElement('input'), ownLab = document.createElement('label'); ownBox.type = 'checkbox'; ownBox.id = 'sOwned';
+  ownLab.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer'; ownLab.appendChild(ownBox); ownLab.appendChild(document.createTextNode('Besitze ich schon'));
+  $('sName').closest('label').insertAdjacentElement('afterend', ownLab);
+  ownBox.addEventListener('change', () => { const it = sel(); if (!it) return; if (ownBox.checked) it.owned = true; else delete it.owned; save(); emit('items'); if (typeof varBuild === 'function') varBuild(); });
   function select(id) {
     selId = id; markSel(); emit('select', id);
     const it = sel();
     $('selEmpty').hidden = !!it; $('selBox').hidden = !it;
     if (it) {
       $('sName').value = it.name; $('sW').value = Math.round(it.w * 100); $('sD').value = Math.round(it.d * 100);
-      $('sH').value = Math.round(it.h * 100); $('sColor').value = it.color;
+      $('sH').value = Math.round(it.h * 100); $('sColor').value = it.color; ownBox.checked = it.owned === true;
     }
     selLink.hidden = !(it && LINKS[it.name]); if (!selLink.hidden) selLink.href = LINKS[it.name];
     const hs = !!(it && it.side);
@@ -3880,21 +3887,32 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     if (C.hint) { const p = document.createElement('p'); p.style.cssText = 'margin:6px 0 0;font-size:12px;opacity:.7'; p.textContent = C.hint; ziRow.appendChild(p); }
     ziMark();
   }
-  // ---- Variants panel
+  // ---- Variants: a quick switch right under the flat's name (the app moves it into its header) and a panel
   const varRow = document.createElement('section');
+  const varTop = document.createElement('label'), varSel = document.createElement('select'); varTop.className = 'f'; varTop.textContent = 'Einrichtung'; varSel.id = 'varSel'; varTop.appendChild(varSel);
+  $('aptSel').closest('label').insertAdjacentElement('afterend', varTop);
+  function varSwitch(k) {       // the arrangement on screen goes back into the list, the chosen one comes out
+    if (!(k >= 0) || !cur.variants[k]) return;
+    const next = cur.variants.splice(k, 1)[0]; cur.variants.unshift({ name: cur.vname, items: cur.items });
+    cur.items = next.items; cur.vname = next.name; select(null); rebuildAll(); save(); emit('remote'); varBuild(); if (ziRow) ziMark();
+  }
+  varSel.addEventListener('change', () => {
+    if (varSel.value !== 'new') { varSwitch(+varSel.value); return; }
+    varSel.value = '-1';      // "new": lead to the panel where a copy gets its name
+    if (window.AppUI && AppUI.showTab) AppUI.showTab('flat');
+    const ni = varRow.querySelector('input[type=text]'); if (ni) { varRow.scrollIntoView({ block: 'center' }); ni.focus(); }
+  });
   function varBuild() {
-    varRow.textContent = '';
+    varRow.textContent = ''; varSel.textContent = '';
+    [cur.vname].concat(cur.variants.map(v => v.name)).forEach((n, i) => { const o = document.createElement('option'); o.value = String(i - 1); o.textContent = n; varSel.appendChild(o); });
+    { const o = document.createElement('option'); o.value = 'new'; o.textContent = '＋ Neue Variante …'; varSel.appendChild(o); varSel.value = '-1'; }
     const mk2 = (tag, text, css) => { const e = document.createElement(tag); if (text) e.textContent = text; if (css) e.style.cssText = css; return e; };
     varRow.appendChild(mk2('h2', 'Einrichtungs-Varianten'));
     const st = mk2('div', '', 'display:flex;flex-direction:column;gap:8px'); varRow.appendChild(st);
     const lab = mk2('label'); lab.className = 'f'; lab.textContent = 'Auf dem Bildschirm';
     const sel = document.createElement('select'); [cur.vname].concat(cur.variants.map(v => v.name)).forEach((n, i) => { const o = document.createElement('option'); o.value = String(i - 1); o.textContent = n; sel.appendChild(o); });
     lab.appendChild(sel); st.appendChild(lab);
-    sel.addEventListener('change', () => {       // the arrangement on screen goes back into the list, the chosen one comes out
-      const k = +sel.value; if (!(k >= 0) || !cur.variants[k]) return;
-      const next = cur.variants.splice(k, 1)[0]; cur.variants.unshift({ name: cur.vname, items: cur.items });
-      cur.items = next.items; cur.vname = next.name; select(null); rebuildAll(); save(); emit('remote'); varBuild(); if (ziRow) ziMark();
-    });
+    sel.addEventListener('change', () => varSwitch(+sel.value));
     const row = mk2('div', '', 'display:flex;gap:6px;flex-wrap:wrap;align-items:end');
     const nl = mk2('label'); nl.className = 'f'; nl.textContent = 'Name für eine Kopie'; const ni = document.createElement('input'); ni.type = 'text'; ni.maxLength = 60; ni.placeholder = 'z. B. Mit hellem Sofa'; nl.appendChild(ni);
     const cp = mk2('button', 'Kopie anlegen'); cp.className = 'act';
@@ -3903,6 +3921,16 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       cur.variants.unshift({ name: cur.vname, items: JSON.parse(JSON.stringify(cur.items)) }); cur.vname = n; save(); varBuild();
     });
     row.appendChild(nl); row.appendChild(cp); st.appendChild(row);
+    const nOwn = cur.items.filter(it => it.owned === true).length;
+    const fresh = mk2('button', 'Neu beginnen mit dem, was ich besitze (' + nOwn + ')'); fresh.className = 'act'; fresh.disabled = !nOwn;
+    fresh.addEventListener('click', () => {      // today's arrangement is kept in the list; the new one holds only the owned pieces, where they stand
+      if (cur.variants.length >= 11) return;
+      const n = ni.value.trim() || 'Neue Variante';
+      cur.variants.unshift({ name: cur.vname, items: cur.items }); cur.items = JSON.parse(JSON.stringify(cur.items.filter(it => it.owned === true))).map(it => Object.assign(it, { id: uid() })); cur.vname = n;
+      select(null); rebuildAll(); save(); emit('remote'); varBuild(); if (ziRow) ziMark();
+    });
+    st.appendChild(fresh);
+    st.appendChild(mk2('p', nOwn ? 'Möbel, die du schon besitzt, markierst du im Reiter «Auswahl».' : 'Markiere im Reiter «Auswahl» die Möbel, die du schon besitzt. Dann kannst du eine neue Variante nur mit ihnen beginnen.', 'margin:0;font-size:12px;opacity:.7'));
     if (cur.variants.length) {
       const del = mk2('button', 'Diese Variante löschen'); del.className = 'act danger'; let armed = false;
       del.addEventListener('click', () => {
@@ -4353,6 +4381,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   bar.appendChild(el('div', 'ax-brand', 'Einrichtungsplaner'));
   var flatBox = el('div', 'ax-flat'), sel = $('aptSel'), oldLabel = sel.closest('label');
   sel.setAttribute('aria-label', 'Wohnung'); flatBox.appendChild(sel); bar.appendChild(flatBox); if (oldLabel) oldLabel.remove();
+  var vsel = $('varSel'); if (vsel) { var vLabel = vsel.closest('label'), vBox = el('div', 'ax-flat ax-variant'); vsel.setAttribute('aria-label', 'Einrichtungs-Variante'); vBox.appendChild(vsel); bar.appendChild(vBox); if (vLabel) vLabel.remove(); }
   bar.appendChild(el('div', 'ax-grow'));
   var status = el('div', 'ax-status'); status.setAttribute('role', 'status'); bar.appendChild(status);
   var undoBtn = btn('Rückgängig', 'ghost'); undoBtn.disabled = true; bar.insertBefore(undoBtn, status);
