@@ -1329,6 +1329,18 @@ span.axv-name { cursor: default; }
     { type: 'rug', melange: true, name: 'Teppich Hillsand Stone 200 x 300 (Kibek)', w: 3.0, d: 2.0, h: 0.02, color: '#bdb6a8' },
     { type: 'rug', melange: true, name: 'Teppich Svaland Sand 200 x 300 (Kibek)', w: 3.0, d: 2.0, h: 0.02, color: '#dccdb2' },
     { type: 'plant', name: 'Pflanze', w: 0.5, d: 0.5, h: 1.3, color: '#3f7a4a' },
+    { type: 'deco', kind: 'plaid', name: 'Plaid über dem Bettende, Strick sand', w: 1.95, d: 0.7, h: 0.05, color: '#b9a58c', elev: 0.5 },
+    { type: 'deco', kind: 'plaid', name: 'Plaid über dem Bettende, Wolle rostbraun', w: 1.95, d: 0.6, h: 0.05, color: '#8a5a3c', elev: 0.5 },
+    { type: 'deco', kind: 'cushion', name: 'Zierkissen 50 x 50 creme', w: 0.5, d: 0.22, h: 0.46, color: '#ece4d4', elev: 0.5 },
+    { type: 'deco', kind: 'cushion', name: 'Zierkissen 60 x 40 Bouclé braun', mat: 'boucle', w: 0.6, d: 0.2, h: 0.37, color: '#7a5a44', elev: 0.5 },
+    { type: 'deco', kind: 'cushion', name: 'Zierkissen 45 x 45 salbeigrün', w: 0.45, d: 0.2, h: 0.42, color: '#8f9a80', elev: 0.5 },
+    { type: 'deco', kind: 'vase', name: 'Vase Keramik mit Zweigen', w: 0.2, d: 0.2, h: 0.75, color: '#e6ddcd', elev: 0.87 },
+    { type: 'deco', kind: 'vase', name: 'Bodenvase mit Pampasgras', w: 0.3, d: 0.3, h: 1.25, color: '#c9b79c' },
+    { type: 'deco', kind: 'pot', name: 'Vase Keramik bauchig', w: 0.2, d: 0.2, h: 0.24, color: '#3a3532', elev: 0.87 },
+    { type: 'deco', kind: 'bowl', name: 'Schale Keramik', w: 0.3, d: 0.3, h: 0.08, color: '#e6ddcd', elev: 0.87 },
+    { type: 'deco', kind: 'books', name: 'Bücherstapel', w: 0.3, d: 0.22, h: 0.09, color: '#a08a70', elev: 0.87 },
+    { type: 'deco', kind: 'candle', name: 'Kerze im Glas', w: 0.09, d: 0.09, h: 0.11, color: '#6b4a34', elev: 0.87 },
+    { type: 'deco', kind: 'tray', name: 'Tablett Nussbaum', w: 0.4, d: 0.28, h: 0.03, color: '#6a4a36', elev: 0.87 },
     { type: 'lamp', name: 'Stehlampe', w: 0.4, d: 0.4, h: 1.6, color: '#f3e3b8' }
   ];
   function uid() { return Math.random().toString(36).slice(2, 9); }
@@ -2925,6 +2937,46 @@ span.axv-name { cursor: default; }
       if (legs) [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(q => box(g, 0.03, lg, 0.03, q[0] * (w / 2 - 0.06), lg / 2, q[1] * (d / 2 - 0.05), blk));
     } else if (it.type === 'pouf') {
       buildPouf(g, it);
+    } else if (it.type === 'deco') {
+      // Small things that make a room lived-in. They stand on other furniture: it.elev is the height of that surface.
+      const s = new THREE.Group(); s.position.y = it.elev || 0; g.add(s);
+      const lathe = (pts, mat, sx, sy) => { const me = new THREE.Mesh(new THREE.LatheGeometry(pts.map(q => new THREE.Vector2(q[0] * sx, q[1] * sy)), 32), mat); s.add(me); return me; };
+      const k = it.kind, cer = M(it.color, 'ceramic');
+      if (k === 'plaid') {
+        // Throw across the foot of a bed: lies flat, folded once, and hangs down on both sides
+        const fab = M(it.color, it.mat || 'struct'), drop = Math.min(0.32, (it.elev || 0.4) * 0.7);
+        rbox(s, w, 0.03, d, 0, 0.015, 0, fab, 0.012); rbox(s, w * 0.985, 0.022, d * 0.42, 0, 0.04, d * 0.22, fab, 0.01);
+        [-1, 1].forEach(q => box(s, 0.03, drop, d, q * (w / 2 - 0.005), 0.03 - drop / 2, 0, fab));
+      } else if (k === 'cushion') {
+        const c = new THREE.Group(); c.rotation.x = -0.3; c.position.z = d / 2 - 0.08; s.add(c);
+        rbox(c, w, h, 0.15, 0, h / 2, 0, M(it.color, it.mat || 'fabric'), 0.065);
+      } else if (k === 'bowl') {
+        lathe([[0.001, 0.12], [0.26, 0.14], [0.42, 0.62], [0.46, 1], [0.5, 1], [0.47, 0.6], [0.3, 0.03], [0.14, 0], [0.001, 0]], cer, w, h);
+      } else if (k === 'books') {
+        const hh = h / 3; [[it.color, 1, 0.05], ['#e8e2d6', 0.92, -0.12], ['#34322f', 0.82, 0.2]].forEach((b, i) => {
+          const c = new THREE.Group(); c.rotation.y = b[2]; c.position.y = i * hh; s.add(c);
+          box(c, w * b[1], hh - 0.002, d * b[1], 0, hh / 2, 0, M(b[0], 'lacquer')); box(c, w * b[1] - 0.008, hh - 0.008, 0.002, 0, hh / 2, d * b[1] / 2, M('#f4f1ea', 'lacquer'));
+        });
+      } else if (k === 'candle') {
+        const r = Math.min(w, d) / 2, jar = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.94, h, 24), cer); jar.position.y = h / 2; s.add(jar);
+        const wax = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.88, r * 0.88, 0.004, 24), M('#f3ead8', 'lacquer')); wax.position.y = h + 0.001; s.add(wax);
+        box(s, 0.002, 0.012, 0.002, 0, h + 0.008, 0, M(0x222222, 'steel'));
+      } else if (k === 'tray') {
+        const wood = M(it.color, 'wood'), t = 0.01;
+        box(s, w, t, d, 0, t / 2, 0, wood); [-1, 1].forEach(q => { box(s, w, h, t, 0, h / 2, q * (d / 2 - t / 2), wood); box(s, t, h, d, q * (w / 2 - t / 2), h / 2, 0, wood); });
+      } else {
+        // Vase: a bellied body with a narrow neck; kind 'vase' also carries dried branches with soft tufts
+        const twigs = k === 'vase', vh = twigs ? h * 0.42 : h, r = Math.min(w, d);
+        lathe([[0.001, 0], [0.3, 0], [0.47, 0.22], [0.5, 0.42], [0.42, 0.66], [0.22, 0.86], [0.17, 0.94], [0.21, 1], [0.17, 1], [0.13, 0.93], [0.001, 0.9]], cer, r, vh);
+        if (twigs) {
+          const stem = M('#a98f68', 'wood'), tuft = M('#dccdb0', 'fabric'), n = 7;
+          for (let i = 0; i < n; i++) {
+            const a = i * 2.4 + 0.4, out = r * (0.35 + 0.22 * ((i * 7) % 5) / 4) * 2.2, top = h * (0.8 + 0.2 * ((i * 3) % 4) / 3), ex = Math.cos(a) * out, ez = Math.sin(a) * out;
+            strut(s, [ex, top, ez], [0, vh * 0.8, 0], 0.003, 0.005, stem);
+            const tf = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), tuft); tf.scale.set(r * 0.13, h * 0.11, r * 0.13); tf.position.set(ex, top, ez); tf.rotation.set(Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3); s.add(tf);
+          }
+        }
+      }
     } else if (it.type === 'plant') {
       const pot = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.3, w * 0.24, h * 0.3, 16), M(0x2b2b2b, 'ceramic')); pot.position.y = h * 0.15; g.add(pot);
       const leaf = new THREE.Mesh(new THREE.SphereGeometry(w / 2, 14, 10), m); leaf.scale.y = (h * 0.7) / w; leaf.position.y = h * 0.65; g.add(leaf);
@@ -3021,7 +3073,7 @@ span.axv-name { cursor: default; }
     if (['bed', 'pbed', 'mbed', 'prbed'].includes(t)) return 'Betten';
     if (['wlamp', 'moch', 'arc', 'lamp', 'yava'].includes(t)) return 'Leuchten';
     if (t === 'rug' || t === 'curtain') return 'Teppiche & Vorhänge';
-    if (['art', 'ledge', 'oar', 'mirror', 'plant'].includes(t)) return 'Wand & Deko';
+    if (['art', 'ledge', 'oar', 'mirror', 'plant', 'deco'].includes(t)) return 'Wand & Deko';
     return 'Schränke, Regale & Kommoden';
   };
   const sorted = CATALOG.map(c => [CATS.indexOf(catOf(c)), LINKS[c.name] || /\(/.test(c.name) ? 0 : 1, c.name, c]).sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2].localeCompare(b[2], 'de'));
@@ -4470,7 +4522,7 @@ span.axv-name { cursor: default; }
       p.id = it.id; p.type = t; p.h = num(it.h) ? it.h : 1;
       p.label = '«' + (String(it.name || 'Möbel').replace(/\s*\([^)]*\)\s*$/, '').slice(0, 48) || 'Möbel') + '»';
       p.lamp = TYPES.lamp.test(t) || (open && /leuchte|lampe/.test(n));
-      p.small = p.lamp || t === 'plant';
+      p.small = p.lamp || t === 'plant' || t === 'deco';
       p.chair = TYPES.chair.test(t) || (open && /stuhl/.test(n));
       p.stool = p.chair || t === 'pouf' || (/hocker/.test(n) && it.w <= 0.7);
       p.bedside = /nachtt/.test(n);
