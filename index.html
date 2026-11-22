@@ -1247,7 +1247,8 @@ span.axv-name { cursor: default; }
     { type: 'hack', name: 'Schreibtisch EKET + Karlby Nussbaum 186 (IKEA-Hack)', w: 1.86, d: 0.635, h: 0.74, color: '#7a5539' },
     { type: 'bed', mat: 'wood', name: 'Bett Tonstad Eiche braun 180 (IKEA)', w: 1.89, d: 2.09, h: 0.42, color: '#6a4a36' },
     { type: 'box', mat: 'wood', name: 'Nachttisch Tonstad Eiche braun (IKEA)', w: 0.4, d: 0.4, h: 0.59, color: '#6a4a36' },
-    { type: 'paxw', name: 'PAX/Tonstad Schrank 250 Eiche braun (IKEA)', w: 2.5, d: 0.6, h: 2.36, color: '#6f4f3a', doors: 5 },
+    { type: 'paxw', body: '#4b4b4a', name: 'PAX/Tonstad Schrank 250 Eiche braun (IKEA)', w: 2.5, d: 0.6, h: 2.36, color: '#6f4f3a', doors: 5 },
+    { type: 'paxw', body: '#c9bdaa', name: 'PAX/Forsand Schrank 250 graubeige (IKEA)', w: 2.5, d: 0.6, h: 2.36, color: '#c9bdaa', doors: 5 },
     { type: 'rug', name: 'Teppich Marely Wolle weiss 200 x 300 (Kave Home)', w: 3.0, d: 2.0, h: 0.012, color: '#e9e3d6', melange: 'soft' },
     { type: 'rug', name: 'Teppich Stoense elfenbein 200 x 300 (IKEA)', w: 3.0, d: 2.0, h: 0.018, color: '#e6dfd0', melange: 'soft' },
     { type: 'moch', name: 'Tischleuchte Arenys gold (Kave Home)', w: 0.16, d: 0.16, h: 0.4, color: '#c9a35a' },
@@ -1386,6 +1387,7 @@ span.axv-name { cursor: default; }
     'Bogenleuchte Icarus (Neona)': 'https://ch.neona.store/products/icarus-led-bogenlampe-schwarz-metall-dimmbar',
     'Gardinenstore Stenfrö weiss (IKEA)': 'https://www.ikea.com/ch/de/p/stenfroe-gardinenstore-1-schal-weiss-mit-gardinenband-10597706/',
     'Spiegel Nissedal schwarz 40 x 150 (IKEA)': 'https://www.ikea.com/ch/de/p/nissedal-spiegel-schwarz-90605482/',
+    'PAX/Forsand Schrank 250 graubeige (IKEA)': 'https://www.ikea.com/ch/de/p/pax-forsand-schrankkombination-graubeige-dunkelgrau-graubeige-s09562227/',
     'PAX/Fardal Schrank 170 (IKEA)': 'https://www.ikea.com/ch/de/p/pax-fardal-schrankkombination-weiss-hochglanz-weiss-weiss-s09606882/',
     'Regal Toome I (home24)': H24 + 'regal-toome-i-akazie-massiv-metall-akazie-schwarz',
     'Polsterbett Primo 180 (home24)': H24 + 'polsterbett-primo-strukturstoff-purna-beige-180-x-200cm',
@@ -2029,7 +2031,14 @@ span.axv-name { cursor: default; }
   let A = APTS[S.apt], cur = ensure(S.apt);
   function saveLocal() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
   // Furniture lists from storage or from another account are untrusted data: keep only well-formed pieces.
-  function okItems(a) { return (Array.isArray(a) ? a : []).filter(it => it && typeof it === 'object' && typeof it.type === 'string' && [it.x, it.z, it.w, it.d, it.h].every(v => typeof v === 'number' && isFinite(v))); }
+  function okItems(a) {
+    return (Array.isArray(a) ? a : []).filter(it => it && typeof it === 'object' && typeof it.type === 'string' && [it.x, it.z, it.w, it.d, it.h].every(v => typeof v === 'number' && isFinite(v)) && it.w > 0 && it.d > 0 && it.h > 0)
+      .map(it => {      // height and turn come from other people's data too: a number in range, or the default
+        if (typeof it.elev === 'number' && isFinite(it.elev)) it.elev = Math.max(0, Math.min(4, it.elev)); else delete it.elev;
+        it.rot = typeof it.rot === 'number' && isFinite(it.rot) ? ((it.rot % 360) + 360) % 360 : 0;
+        return it;
+      });
+  }
   // Colour corrections for furniture placed before a model was refined; run on stored and on incoming layouts.
   function fixItems(items) {
     let ch = false;
@@ -2037,6 +2046,7 @@ span.axv-name { cursor: default; }
       if (it.type === 'otable' && (it.color === '#6a4c3a' || it.color === '#a05c36')) { it.color = '#7a5240'; ch = true; }   // darker walnut, after the product photos
       if (it.type === 'sboard' && !it.kind && /^Sideboard Rixo/.test(it.name || '')) { it.kind = 'rixo'; delete it.doors; ch = true; }
       if (it.type === 'mirror' && !it.round && /Lindbyn rund/.test(it.name || '')) { it.round = true; ch = true; }
+      if (it.type === 'paxw' && !it.body && /^PAX\/Tonstad/.test(it.name || '')) { it.body = '#4b4b4a'; ch = true; }   // the body of this combination is dark grey
       if (it.type === 'mchair' && it.color === '#c9c1b5') { it.color = '#d0c2b7'; ch = true; }
       if (it.type === 'vino' && it.color === '#a8743f') { it.color = '#c98f4c'; ch = true; }
       if (it.type === 'ovo' && it.mainD === 1) { it.mainD = 0.83; ch = true; }
@@ -2805,7 +2815,7 @@ span.axv-name { cursor: default; }
     } else if (it.type === 'paxw') {
       // Wardrobe wall (IKEA PAX): white body on a set-back plinth with it.doors high-gloss doors; hinged doors get
       // slim handles, sliding doors (it.slide) overlap in two tracks. Back at -z.
-      const body = M(0xf2f2ef, 'wall'), gloss = M(it.color, 'lacquer'), steel = M(0xb9bcc0, 'steel'), pl = 0.07, n = Math.max(1, it.doors || Math.round(w / 0.5)), dw = w / n;
+      const body = M(it.body || 0xf2f2ef, 'wall'), gloss = M(it.color, 'lacquer'), steel = M(0xb9bcc0, 'steel'), pl = 0.07, n = Math.max(1, it.doors || Math.round(w / 0.5)), dw = w / n;
       box(g, w, h - pl, d - 0.02, 0, pl + (h - pl) / 2, -0.01, body); box(g, w - 0.02, pl, d - 0.07, 0, pl / 2, -0.035, body);
       for (let i = 0; i < n; i++) {
         const x = -w / 2 + dw * (i + 0.5), zf = d / 2 - 0.009 - (it.slide && i % 2 ? 0.02 : 0);
@@ -3074,7 +3084,8 @@ span.axv-name { cursor: default; }
     } else {
       box(g, w, h, d, 0, h / 2, 0, m);
     }
-    g.position.set(it.x, it.type === 'rug' ? 0.012 : 0, it.z);
+    // Height above the floor: some builders place themselves at it.elev (ELEV_OWN), every other piece is lifted as a whole
+    g.position.set(it.x, it.type === 'rug' ? 0.012 : (!(it.type in ELEV_OWN) && it.type !== 'curtain' && it.elev > 0 ? it.elev : 0), it.z);
     g.rotation.y = -it.rot * Math.PI / 180;
     g.userData.id = it.id;
     Realism.enableShadows(g, { cast: it.type !== 'rug' });
@@ -3109,6 +3120,106 @@ span.axv-name { cursor: default; }
   const markSet = (k, on, other) => { const it = sel(); if (!it) return; if (on) { it[k] = true; delete it[other]; } else delete it[k]; ownBox.checked = it.owned === true; buyBox.checked = it.buy === true; save(); emit('items'); if (typeof varBuild === 'function') varBuild(); };
   ownBox.addEventListener('change', () => markSet('owned', ownBox.checked, 'buy'));
   buyBox.addEventListener('change', () => markSet('buy', buyBox.checked, 'owned'));
+  // ---- Height above the floor and snapping. All rules are fixed (no guessing), Alt while dragging switches them off.
+  // ELEV_OWN: types whose builder reads it.elev itself, with the height they take when it is not set.
+  const ELEV_OWN = { art: 1.15, wlamp: 1.5, sage: 0.92, mirror: 0.25, oar: 1.3, ledge: 0.83, moch: 0, deco: 0 };
+  const HUNG = { art: 1, mirror: 1, ledge: 1, wlamp: 1, oar: 1, curtain: 1 };      // hang on a wall: the back turns to it
+  const RIDER = { deco: 1, moch: 1, sage: 1 };                                     // stand on other furniture
+  const elevOf = it => typeof it.elev === 'number' && isFinite(it.elev) ? Math.max(0, it.elev) : (ELEV_OWN[it.type] || 0);
+  // The height at which things stand on a piece, or null when nothing can stand on it
+  function surfaceTop(it) {
+    const t = it.type, n = String(it.name || '');
+    if (t === 'deco') return it.kind === 'tray' ? elevOf(it) + 0.012 : it.kind === 'books' ? elevOf(it) + it.h : null;
+    if (t === 'ledge') return elevOf(it) + 0.015;
+    if (HUNG[t] || RIDER[t] || t === 'rug' || /^(plant|lamp|arc|yava|chair|mchair|achair|ochair|tub|pouf|pax|paxw|paxdesk|toome|vino|sling)$/.test(t)) return null;
+    if (/^(prbed|mbed|pbed)$/.test(t)) return 0.5;
+    if (/^(sofa|lsofa|ovo)$/.test(t) || (t === 'glb' && /sofa/i.test(n))) return 0.45;
+    if (t === 'glb' && /bett/i.test(n)) return Math.min(it.h, 0.5);
+    const top = elevOf(it) + it.h; return top <= 1.3 ? top : null;
+  }
+  const local = (it, x, z) => { const r = it.rot * Math.PI / 180, dx = x - it.x, dz = z - it.z; return [dx * Math.cos(r) + dz * Math.sin(r), -dx * Math.sin(r) + dz * Math.cos(r)]; };
+  const ROUND = { ctable: 1, rtable: 1, otable: 1, gtable: 1 };
+  const inside = (it, x, z) => { const l = local(it, x, z), hw = it.w / 2, hd = it.d / 2; return Math.abs(l[0]) <= hw && Math.abs(l[1]) <= hd && (!ROUND[it.type] || (l[0] / hw) * (l[0] / hw) + (l[1] / hd) * (l[1] / hd) <= 1); };
+  // The highest surface under the centre of a piece: { o, top } or null
+  function under(it) {
+    let best = null;
+    cur.items.forEach(o => { if (o === it) return; const top = surfaceTop(o); if (top === null || !inside(o, it.x, it.z)) return; if (o.type === 'deco' && o.w * o.d <= it.w * it.d) return; if (!best || top > best.top) best = { o, top }; });
+    return best;
+  }
+  // The small things standing on a piece, each with its place in the piece's own frame: they move and turn with it
+  function ridersOf(it) {
+    const top = surfaceTop(it); if (top === null) return [];
+    const on = (o, t) => Math.abs(elevOf(o) - t) <= 0.03;
+    const cand = cur.items.filter(o => o !== it && RIDER[o.type] && inside(it, o.x, o.z) && !(it.type === 'deco' && o.w * o.d >= it.w * it.d));
+    const direct = cand.filter(o => on(o, top));                                    // stands on the piece itself
+    const stacked = cand.filter(o => direct.indexOf(o) < 0 && direct.some(b => { const t = surfaceTop(b); return t !== null && inside(b, o.x, o.z) && on(o, t); }));   // on a tray or books there
+    return direct.concat(stacked).map(o => { const l = local(it, o.x, o.z); return { o, lx: l[0], lz: l[1], rr: (+o.rot || 0) - (+it.rot || 0), de: elevOf(o) - top }; });
+  }
+  function placeRiders(it, riders, rebuild) {
+    const r = it.rot * Math.PI / 180, c = Math.cos(r), sn = Math.sin(r), top = surfaceTop(it);
+    riders.forEach(q => {
+      const o = q.o, rot = ((((+it.rot || 0) + q.rr) % 360) + 360) % 360, e = top === null ? elevOf(o) : Math.max(0, Math.round((top + q.de) * 1000) / 1000), again = rebuild || !(Math.abs(rot - o.rot) < 1e-6) || e !== elevOf(o);
+      o.x = it.x + q.lx * c - q.lz * sn; o.z = it.z + q.lx * sn + q.lz * c; o.rot = rot; if (e !== elevOf(o)) o.elev = e;
+      if (again) refreshItem(o); else if (meshes[o.id]) { meshes[o.id].position.x = o.x; meshes[o.id].position.z = o.z; }
+    });
+  }
+  // The nearest upright wall face seen from a point in a direction: distance and the face's normal, or null
+  const snapRay = new THREE.Raycaster(), snapN = new THREE.Vector3(), snapM = new THREE.Matrix3();
+  function wallHit(x, z, dx, dz, far) {
+    snapRay.camera = camera; snapRay.far = far; snapRay.ray.origin.set(x, 0.12, z); snapRay.ray.direction.set(dx, 0, dz).normalize();
+    const hs = snapRay.intersectObject(apt, true);
+    for (let i = 0; i < hs.length; i++) {
+      const o = hs[i].object, m = o.material;
+      if (!o.isMesh || !hs[i].face || !m || Array.isArray(m) || m.transparent || m.visible === false) continue;
+      snapN.copy(hs[i].face.normal).applyMatrix3(snapM.getNormalMatrix(o.matrixWorld)).normalize();
+      if (Math.abs(snapN.y) > 0.3) continue;
+      return { dist: hs[i].distance, nx: snapN.x, nz: snapN.z };
+    }
+    return null;
+  }
+  // Puts a piece flush against the walls it is close to (12 cm, wall-hung pieces 30 cm) and squares it with the first
+  // one; a wall-hung piece turns its back to that wall. Up to two walls, so a piece also settles into a corner.
+  function snapWalls(it, px, pz) {
+    if (px === undefined) { px = it.x; pz = it.z; }      // where the piece came from: it stays on that side of a wall
+    const hung = !!HUNG[it.type], reach = hung ? 0.3 : 0.12, GAP = 0.004; let done = 0, turned = false;
+    apt.updateMatrixWorld(true);       // walls built since the last drawn frame have no world matrix yet
+    for (let pass = 0; pass < 2; pass++) {
+      const r = it.rot * Math.PI / 180, c = Math.cos(r), sn = Math.sin(r);
+      const hw = hung ? it.d / 2 : it.w / 2;      // a wall-hung piece turns only for a wall as near to its centre as its back may be
+      const ax = [[-sn, c, it.d / 2], [sn, -c, it.d / 2], [c, sn, hw], [-c, -sn, hw]];      // front, back, right, left
+      let best = null;
+      ax.forEach((a, i) => {
+        if (done & (1 << (i >> 1))) return;
+        // looked at from the far side of the piece, so a wall the piece already reaches into is found as well
+        const h = wallHit(it.x - a[0] * a[2], it.z - a[1] * a[2], a[0], a[1], 2 * a[2] + reach); if (!h) return; h.dist -= a[2];
+        if ((px - (it.x + a[0] * h.dist)) * h.nx + (pz - (it.z + a[1] * h.dist)) * h.nz <= 0) return;      // the far face of a wall it came through
+        if (-(h.nx * a[0] + h.nz * a[1]) < 0.97) return;                                                 // more than 14 degrees off: leave it
+        const gap = h.dist - a[2]; if (!best || (hung ? (i === 1 || (best.i !== 1 && gap < best.gap)) : gap < best.gap)) best = { i, a, h, gap };
+      });
+      if (!best) break;
+      if (hung && best.i !== 1) {                              // turn the back to that wall, then look again
+        if (turned || it.type === 'curtain') break; turned = true;
+        it.rot = (((it.rot + [180, 0, 90, 270][best.i]) % 360) + 360) % 360; pass--; continue;
+      }
+      if (pass === 0) {                                        // square with the wall, then touch it
+        const turn = (Math.atan2(-best.h.nz, -best.h.nx) - Math.atan2(best.a[1], best.a[0])) * 180 / Math.PI;
+        it.rot = Math.round(((((it.rot + turn) % 360) + 360) % 360) * 10) / 10 % 360;
+        const perp = best.h.dist * -(best.h.nx * best.a[0] + best.h.nz * best.a[1]);      // distance square to the wall, not along the slanted axis
+        const move = best.a[2] + GAP - perp; it.x += best.h.nx * move; it.z += best.h.nz * move;
+      } else { const move = best.gap - GAP; it.x += best.a[0] * move; it.z += best.a[1] * move; }
+      if (hung) break;
+      done |= 1 << (best.i >> 1);
+    }
+  }
+  const elevIn = document.createElement('input'), elevLab = document.createElement('label'); elevIn.type = 'number'; elevIn.id = 'sElev'; elevIn.min = '0'; elevIn.max = '400'; elevIn.step = '1';
+  elevLab.className = 'f'; elevLab.title = 'Höhe der Unterkante über dem Boden'; elevLab.appendChild(document.createTextNode('Unterkante cm')); elevLab.appendChild(elevIn);
+  $('sH').parentNode.insertAdjacentElement('afterend', elevLab);
+  elevIn.addEventListener('input', () => {
+    const it = sel(); if (!it || it.type === 'rug' || it.type === 'curtain') return;
+    const v = Math.max(0, Math.min(400, parseFloat(elevIn.value) || 0)) / 100, riders = ridersOf(it);
+    if (v === 0 && !(it.type in ELEV_OWN)) delete it.elev; else it.elev = v;
+    refreshItem(it); placeRiders(it, riders); save();
+  });
   function select(id) {
     selId = id; markSel(); emit('select', id);
     const it = sel();
@@ -3116,6 +3227,7 @@ span.axv-name { cursor: default; }
     if (it) {
       $('sName').value = it.name; $('sW').value = Math.round(it.w * 100); $('sD').value = Math.round(it.d * 100);
       $('sH').value = Math.round(it.h * 100); $('sColor').value = it.color; ownBox.checked = it.owned === true; buyBox.checked = it.buy === true;
+      elevIn.value = Math.round(elevOf(it) * 100); elevIn.disabled = it.type === 'rug' || it.type === 'curtain';
     }
     selLink.hidden = !(it && LINKS[it.name]); if (!selLink.hidden) selLink.href = LINKS[it.name];
     const hs = !!(it && it.side);
@@ -3132,7 +3244,7 @@ span.axv-name { cursor: default; }
     furn.remove(meshes[it.id]); disposeTree(meshes[it.id]); delete meshes[it.id];
     cur.items = cur.items.filter(i => i.id !== it.id); select(null); syncLights(); save();
   }
-  function rotateSel(deg) { const it = sel(); if (!it) return; it.rot = ((it.rot + deg) % 360 + 360) % 360; refreshItem(it); save(); }
+  function rotateSel(deg) { const it = sel(); if (!it) return; const riders = ridersOf(it); it.rot = ((it.rot + deg) % 360 + 360) % 360; refreshItem(it); placeRiders(it, riders); save(); }
 
   // ---- Panel
   const selLink = document.createElement('a');
@@ -3184,8 +3296,9 @@ span.axv-name { cursor: default; }
   }));
   ['sName', 'sW', 'sD', 'sH', 'sColor'].forEach(id => $(id).addEventListener('input', () => {
     const it = sel(); if (!it) return;
+    const riders = ridersOf(it);
     it.name = $('sName').value; it.w = num($('sW'), 5) / 100; it.d = num($('sD'), 5) / 100; it.h = num($('sH'), 1) / 100; it.color = $('sColor').value;
-    refreshItem(it); save();
+    refreshItem(it); placeRiders(it, riders); save();
   }));
   $('sRotL').addEventListener('click', () => rotateSel(-15));
   $('sRotR').addEventListener('click', () => rotateSel(15));
@@ -3255,7 +3368,9 @@ span.axv-name { cursor: default; }
     let o = hits[0].object; while (o.parent !== furn) o = o.parent;
     select(o.userData.id);
     if (ray.ray.intersectPlane(ground, hit)) {
-      const it = sel(); drag = { dx: it.x - hit.x, dz: it.z - hit.z };
+      const it = sel(), u = RIDER[it.type] ? under(it) : null, on = !!(u && Math.abs(elevOf(it) - u.top) < 0.03);
+      // e0/free: the height to go back to; skip: the piece it already stood above (a shelf over a sideboard) at the start
+      drag = { dx: it.x - hit.x, dz: it.z - hit.z, riders: ridersOf(it), on, e0: elevOf(it), free: !on, skip: u && !on ? u.o : null };
       controls.enabled = false; try { el.setPointerCapture(e.pointerId); } catch (err) {}
     }
   }, true);
@@ -3263,8 +3378,20 @@ span.axv-name { cursor: default; }
     if (!drag) return;
     setRay(e); const it = sel();
     if (it && ray.ray.intersectPlane(ground, hit)) {
+      const rot0 = it.rot, e0 = elevOf(it); drag.px = it.x; drag.pz = it.z;
       it.x = Math.round((hit.x + drag.dx) / 0.05) * 0.05; it.z = Math.round((hit.z + drag.dz) / 0.05) * 0.05;
-      meshes[it.id].position.x = it.x; meshes[it.id].position.z = it.z;
+      if (!e.altKey && it.type !== 'rug') {
+        const u = RIDER[it.type] ? under(it) : null;
+        if (u && u.o === drag.skip) { /* was higher above this piece from the start: leave its height */ }
+        else {
+          drag.skip = null;
+          if (u) { it.elev = Math.round(u.top * 1000) / 1000; drag.on = true; }           // stands on that piece
+          else { if (RIDER[it.type] && drag.on) { it.elev = drag.free ? drag.e0 : (ELEV_OWN[it.type] || 0); drag.on = false; } snapWalls(it, drag.px, drag.pz); }
+        }
+      }
+      if (it.rot !== rot0 || elevOf(it) !== e0) { refreshItem(it); if (selId === it.id) elevIn.value = Math.round(elevOf(it) * 100); }
+      else { meshes[it.id].position.x = it.x; meshes[it.id].position.z = it.z; }
+      placeRiders(it, drag.riders);
       if (selBoxHelper) selBoxHelper.update();
       syncLights();
     }
@@ -3427,10 +3554,10 @@ span.axv-name { cursor: default; }
         }
       }
       cur.items.forEach(it => { // floor lamps glow below their shade
-        if (it.type === 'lamp') lights.push({ type: 'point', color: W27, intensity: 1.6 * (k.pendants || 0.3), pos: [it.x, Math.max(0.3, it.h - 0.36), it.z] });
+        if (it.type === 'lamp') lights.push({ type: 'point', color: W27, intensity: 1.6 * (k.pendants || 0.3), pos: [it.x, (it.elev > 0 ? it.elev : 0) + Math.max(0.3, it.h - 0.36), it.z] });
         // small battery lamps: a mushroom lamp glows from under its dome, a wall light a hand's width in front of the wall
-        if (it.type === 'arc') { const r = it.rot * Math.PI / 180, o = it.kind === 'icarus' ? it.w * 0.2 : it.w / 2 - 0.16; lights.push({ type: 'point', color: W27, intensity: 1.2 * (k.pendants || 0.3), pos: [it.x + Math.cos(r) * o, it.h * (it.kind === 'icarus' ? 0.9 : 0.75), it.z + Math.sin(r) * o] }); }
-        if (it.type === 'yava') lights.push({ type: 'point', color: W27, intensity: 0.9 * (k.pendants || 0.3), pos: [it.x, it.h - 0.16, it.z] });
+        if (it.type === 'arc') { const r = it.rot * Math.PI / 180, o = it.kind === 'icarus' ? it.w * 0.2 : it.w / 2 - 0.16; lights.push({ type: 'point', color: W27, intensity: 1.2 * (k.pendants || 0.3), pos: [it.x + Math.cos(r) * o, (it.elev > 0 ? it.elev : 0) + it.h * (it.kind === 'icarus' ? 0.9 : 0.75), it.z + Math.sin(r) * o] }); }
+        if (it.type === 'yava') lights.push({ type: 'point', color: W27, intensity: 0.9 * (k.pendants || 0.3), pos: [it.x, (it.elev > 0 ? it.elev : 0) + it.h - 0.16, it.z] });
         if (it.type === 'moch') lights.push({ type: 'point', color: W27, intensity: 0.55 * (k.pendants || 0.3), pos: [it.x, (it.elev || 0) + it.h * 0.5, it.z], distance: 2.2 });
         if (it.type === 'wlamp') { const t = -it.rot * Math.PI / 180; lights.push({ type: 'point', color: W27, intensity: 0.5 * (k.pendants || 0.3), pos: [it.x + Math.sin(t) * 0.12, (it.elev || 1.5) + (it.kind === 'gino' ? -0.05 : it.h / 2), it.z + Math.cos(t) * 0.12], distance: 2.5 }); }
       });
@@ -4457,9 +4584,18 @@ span.axv-name { cursor: default; }
       ['x', 'z', 'rot', 'w', 'd', 'h', 'elev'].forEach(k => { if (typeof patch[k] === 'number' && isFinite(patch[k])) it[k] = patch[k]; });
       ['color', 'name', 'side'].forEach(k => { if (typeof patch[k] === 'string') it[k] = patch[k]; });
       ['owned', 'buy'].forEach(k => { if (patch[k] === true) it[k] = true; else if (patch[k] === false) delete it[k]; });      // already owned / on the shopping list
+      if (typeof it.elev === 'number') it.elev = Math.max(0, Math.min(4, it.elev));
       it.rot = ((it.rot % 360) + 360) % 360; refreshItem(it); if (selId === id) select(id); syncLights(); save(); return true;
     },
     removeItem(id) { if (!cur.items.some(i => i.id === id)) return false; select(id); removeSel(); return true; },
+    // Applies the snapping rules to a piece where it stands: onto the furniture under it, else flush to the walls
+    // it is close to. Returns the piece as it is afterwards, or null.
+    snapItem(id) {
+      const it = cur.items.find(i => i.id === id); if (!it || it.type === 'rug') return null;
+      const riders = ridersOf(it), u = RIDER[it.type] ? under(it) : null;
+      if (u) it.elev = Math.round(u.top * 1000) / 1000; else snapWalls(it);
+      refreshItem(it); placeRiders(it, riders); if (selId === id) select(id); save(); return clone(it);
+    },
     // Furnishing variants of the flat on screen. variants() lists the others with their pieces; takeFromVariant puts
     // chosen pieces of another variant into the arrangement on screen (see varTake).
     variants: () => ({ current: cur.vname, others: cur.variants.map(v => ({ name: v.name, items: clone(v.items) })) }),
@@ -4944,7 +5080,7 @@ span.axv-name { cursor: default; }
     if (se) se.textContent = 'Kein Möbelstück ausgewählt. Klick eines in der Wohnung an.';
     if (h2) h2.textContent = 'Grundriss nachjustieren';
     if (rs) rs.textContent = 'Einrichtung zurücksetzen';
-    function syncHint() { if (hint) hint.textContent = 'Möbel ziehen zum Verschieben · Drehen, Grösse, Löschen im Reiter «Auswahl» · Leere Fläche ziehen ' + (P.nav.mode() === 'top' ? 'verschiebt' : 'dreht') + ' die Ansicht'; }
+    function syncHint() { if (hint) hint.textContent = 'Möbel ziehen: rasten an Wänden und auf Möbeln ein (Alt: frei) · Drehen, Grösse, Höhe im Reiter «Auswahl» · Leere Fläche ziehen ' + (P.nav.mode() === 'top' ? 'verschiebt' : 'dreht') + ' die Ansicht'; }
     ['btn3d', 'btnTop'].forEach(function (id) { var b = $(id); if (b) b.addEventListener('click', function () { setTimeout(syncHint, 0); }); });
     syncHint();
   })();
