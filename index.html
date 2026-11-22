@@ -1241,7 +1241,7 @@ span.axv-name { cursor: default; }
     { type: 'pouf', name: 'Bouclé-Hocker Alto Off White (Westwing)', w: 0.42, d: 0.42, h: 0.47, color: '#ece6d8' },
     { type: 'ctable', name: 'Esstisch Nealy rund Nussbaum dunkel 120 (Kave Home)', w: 1.2, d: 1.2, h: 0.75, color: '#5b3d2a' },
     { type: 'mchair', name: 'Armlehnstuhl Meila Chenille beige (Kave Home)', w: 0.57, d: 0.52, h: 0.79, color: '#d9cfbe' },
-    { type: 'sboard', name: 'Sideboard Rixo Walnuss 180 (home24)', w: 1.8, d: 0.4, h: 0.8, color: '#7b5235', doors: 4 },
+    { type: 'sboard', kind: 'rixo', name: 'Sideboard Rixo Walnuss 180 (home24)', w: 1.8, d: 0.4, h: 0.8, color: '#7b5235' },
     { type: 'sboard', name: 'Sideboard Tonstad Eiche braun 121 (IKEA)', w: 1.21, d: 0.47, h: 0.9, color: '#6a4a36', doors: 3 },
     { type: 'sboard', name: 'Wandkonsole EKET Nussbaum 140 (IKEA)', w: 1.4, d: 0.35, h: 0.35, elev: 0.62, color: '#7a5539', doors: 4, legs: false },
     { type: 'hack', name: 'Schreibtisch EKET + Karlby Nussbaum 186 (IKEA-Hack)', w: 1.86, d: 0.635, h: 0.74, color: '#7a5539' },
@@ -1255,7 +1255,8 @@ span.axv-name { cursor: default; }
     { type: 'lamp', name: 'Stehlampe Lilly Opalglas (Westwing)', w: 0.3, d: 0.3, h: 1.5, color: '#f4efe4' },
     { type: 'wlamp', kind: 'gino', name: 'Wandleuchte Grant Opalglas mit Stecker (Westwing)', w: 0.15, d: 0.21, h: 0.18, elev: 1.45, color: '#b8975a' },
     { type: 'mirror', name: 'Ganzkörperspiegel Francis gold 65 x 170 (Westwing)', w: 0.65, d: 0.03, h: 1.7, elev: 0.02, color: '#b8975a' },
-    { type: 'mirror', name: 'Spiegel Lindbyn rund schwarz 80 (IKEA)', w: 0.8, d: 0.03, h: 0.8, elev: 1.1, color: '#151515' },
+    { type: 'mirror', round: true, name: 'Spiegel Lindbyn rund schwarz 80 (IKEA)', w: 0.8, d: 0.03, h: 0.8, elev: 1.1, color: '#151515' },
+    { type: 'mirror', round: true, name: 'Wandspiegel rund Messing 90', w: 0.9, d: 0.03, h: 0.9, elev: 1.05, color: '#b08d57' },
     { type: 'art', name: 'Bild Arilan abstrakt 100 x 100 (Kave Home)', w: 1.0, d: 0.05, h: 1.0, elev: 1.15, color: '#d8ccb6' },
     { type: 'curtain', name: 'Gardinenstore Hällebräcka hellbeige (IKEA)', w: 1.45, d: 0.1, h: 2.45, color: '#ece3d2' },
     { type: 'curtain', name: 'Vorhang Vilborg graubeige abdunkelnd (IKEA)', w: 1.45, d: 0.12, h: 2.45, color: '#8c7f6c' },
@@ -2032,6 +2033,8 @@ span.axv-name { cursor: default; }
     let ch = false;
     (items || []).forEach(it => {
       if (it.type === 'otable' && (it.color === '#6a4c3a' || it.color === '#a05c36')) { it.color = '#7a5240'; ch = true; }   // darker walnut, after the product photos
+      if (it.type === 'sboard' && !it.kind && /^Sideboard Rixo/.test(it.name || '')) { it.kind = 'rixo'; delete it.doors; ch = true; }
+      if (it.type === 'mirror' && !it.round && /Lindbyn rund/.test(it.name || '')) { it.round = true; ch = true; }
       if (it.type === 'mchair' && it.color === '#c9c1b5') { it.color = '#d0c2b7'; ch = true; }
       if (it.type === 'vino' && it.color === '#a8743f') { it.color = '#c98f4c'; ch = true; }
       if (it.type === 'ovo' && it.mainD === 1) { it.mainD = 0.83; ch = true; }
@@ -2375,6 +2378,50 @@ span.axv-name { cursor: default; }
   }
   // Round dining table home24 "Olson" (diameter 120, height 75 cm, top 1.8 cm): thin walnut-coloured top with a
   // chamfered underside on four flat blades that cross at a centre post, each reaching up to the top and down to the floor.
+  // Sideboard home24 "Rixo" (180 x 40 x 80 cm), after the product photos: walnut veneer body floating 20 cm above the
+  // floor on two slim black iron frames. Left two thirds: two doors; right third: an open compartment with one shelf
+  // above a drawer. Doors and drawer carry a chevron veneer in upright bands; small black pulls sit at their top edge.
+  let rixoLines = null;
+  function buildRixo(g, it) {
+    const w = it.w, d = it.d, h = it.h, lg = Math.min(0.2, h * 0.25), t = 0.02, bh = h - lg, zf = d / 2, shade = k => '#' + new THREE.Color(it.color).multiplyScalar(k).getHexString();
+    const wood = M(it.color, 'wood'), dark = M(shade(0.9), 'wood'), inner = M(shade(0.5), 'wood'), blk = M(0x1a1a1a, 'steel');
+    const lines = rixoLines || (rixoLines = (() => {      // fine diagonal veneer joints, laid over the bands
+      const c = document.createElement('canvas'); c.width = c.height = 256; const k = c.getContext('2d'); k.fillStyle = '#000'; k.fillRect(0, 0, 256, 256); k.strokeStyle = '#fff'; k.lineWidth = 2.5;
+      for (let i = -4; i < 5; i++) { k.beginPath(); k.moveTo(0, i * 64); k.lineTo(256, i * 64 + 256); k.stroke(); }
+      const tx = new THREE.CanvasTexture(c); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.anisotropy = 8;
+      const m = new THREE.MeshStandardMaterial({ color: 0x1c110b, alphaMap: tx, transparent: true, opacity: 0.38, roughness: 0.9, depthWrite: false }); m.userData.shared = true; return m;
+    })());
+    box(g, w, t, d, 0, h - t / 2, 0, wood); box(g, w, t, d, 0, lg + t / 2, 0, wood);
+    [-1, 1].forEach(q => box(g, t, bh - 2 * t, d, q * (w / 2 - t / 2), lg + bh / 2, 0, wood));
+    box(g, w - 2 * t, bh - 2 * t, 0.008, 0, lg + bh / 2, -zf + 0.004, inner);
+    const iw = w - 2 * t, ih = bh - 2 * t, yb = lg + t, split = -iw / 2 + iw * 2 / 3, zs = zf - 0.014;
+    box(g, t, ih, d - 0.012, split, yb + ih / 2, -0.006, wood);
+    // A front panel with its chevron: upright bands whose grain runs at +45 and -45 degrees in turn
+    const front = (cx, cy, fw, fh) => {
+      box(g, fw, fh, 0.016, cx, cy, zs, wood);
+      const n = Math.max(2, 2 * Math.round(fw / 0.195)), bw = fw / n;
+      for (let i = 0; i < n; i++) {
+        const ge = new THREE.PlaneGeometry(bw, fh), pos = ge.attributes.position, uv = ge.attributes.uv, a = (i % 2 ? 1 : -1) * Math.PI / 4, c = Math.cos(a), sn = Math.sin(a);
+        for (let k = 0; k < pos.count; k++) uv.setXY(k, 0.5 + (pos.getX(k) * c - pos.getY(k) * sn) / 0.9, 0.5 + (pos.getX(k) * sn + pos.getY(k) * c) / 0.9);
+        const me = new THREE.Mesh(ge, i % 2 ? dark : wood); me.position.set(cx - fw / 2 + bw * (i + 0.5), cy, zs + 0.0086); me.castShadow = false; me.receiveShadow = true; g.add(me);
+        const gl = new THREE.PlaneGeometry(bw, fh), pl = gl.attributes.position, ul = gl.attributes.uv;
+        for (let k = 0; k < pl.count; k++) { const u = pl.getX(k) / bw + 0.5; ul.setXY(k, i % 2 ? 1 - u : u, pl.getY(k) / bw); }
+        const ml = new THREE.Mesh(gl, lines); ml.position.set(me.position.x, cy, zs + 0.009); ml.castShadow = false; g.add(ml);
+      }
+    };
+    const pull = (cx, top) => box(g, 0.11, 0.007, 0.016, cx, top - 0.0035, zs + 0.012, blk);
+    const dw = (split - t / 2 + iw / 2) / 2, xl = -iw / 2;
+    [0, 1].forEach(i => { front(xl + dw * (i + 0.5), yb + ih / 2, dw - 0.004, ih - 0.004); pull(xl + dw + (i ? 0.075 : -0.075), yb + ih - 0.002); });
+    const rx0 = split + t / 2, rw = iw / 2 - rx0, rcx = rx0 + rw / 2, hh = ih / 2;
+    box(g, rw, t, d - 0.012, rcx, yb + hh, -0.006, wood);                                    // floor of the open compartment
+    box(g, rw, 0.014, d - 0.04, rcx, yb + hh + (hh - t / 2) / 2 + t / 2, -0.014, wood);      // its shelf
+    front(rcx, yb + (hh - t / 2) / 2, rw - 0.004, hh - t / 2 - 0.004); pull(rcx, yb + hh - t / 2 - 0.002);
+    [-1, 1].forEach(q => {                                                                    // iron frames
+      const xa = q * (w / 2 - 0.24), xb = xa - q * 0.1, za = zf - 0.06, r = 0.009;
+      strut(g, [xa, lg, za], [xa, 0, za], r, r, blk); strut(g, [xb, lg, -za], [xb, 0, -za], r, r, blk);
+      strut(g, [xa, lg - r, za], [xb, lg - r, -za], r, r, blk); strut(g, [xa, lg * 0.5, za], [xb, lg * 0.5, -za], r * 0.8, r * 0.8, blk);
+    });
+  }
   const olsonTop = {};
   function buildOlson(g, it, m) {
     const s = new THREE.Group(); s.scale.set(it.w / 1.2, it.h / 0.75, it.d / 1.2); g.add(s);
@@ -2773,9 +2820,15 @@ span.axv-name { cursor: default; }
     } else if (it.type === 'mirror') {
       // Wall mirror in a slim frame, lower edge at it.elev. Wall at -z.
       const el = it.elev === undefined ? 0.25 : it.elev;
+      if (it.round) {   // round mirror: a slim metal rim around the glass
+        const r = Math.min(w, h) / 2, rim = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d, 64), M(it.color, 'steel')); rim.rotation.x = Math.PI / 2; rim.position.set(0, el + r, 0); g.add(rim);
+        const gr = new THREE.Mesh(new THREE.CircleGeometry(r - 0.018, 64), new THREE.MeshStandardMaterial({ color: 0xe6edf0, metalness: 1, roughness: 0.04, envMapIntensity: 1.4 })); gr.material.userData.own = true;
+        gr.position.set(0, el + r, d / 2 + 0.002); g.add(gr);
+      } else {
       box(g, w, h, d, 0, el + h / 2, 0, M(it.color, 'steel'));
       const gl = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.04, h - 0.04), new THREE.MeshStandardMaterial({ color: 0xe6edf0, metalness: 1, roughness: 0.04, envMapIntensity: 1.4 }));
       gl.position.set(0, el + h / 2, d / 2 + 0.002); g.add(gl);
+      }
     } else if (it.type === 'arc') {
       // Arc floor lamp: round base at the -x end, a slim arm rising and curving over to a dome shade at the +x end.
       if (it.kind === 'icarus') {
@@ -2928,6 +2981,8 @@ span.axv-name { cursor: default; }
       sh.absarc(0, 0, r, a0, a1, false); sh.absarc(0, 0, ri, a1, a0, true); sh.closePath();
       const bg = new THREE.ExtrudeGeometry(sh, { depth: h - sy - 0.03, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.025, bevelSegments: 3, curveSegments: 28 });
       bg.rotateX(-Math.PI / 2); const back = new THREE.Mesh(bg, fab); back.position.y = sy; g.add(back);
+    } else if (it.type === 'sboard' && it.kind === 'rixo') {
+      buildRixo(g, it);
     } else if (it.type === 'sboard') {
       // Sideboard or wall console in veneer: plain doors with fine joints and small black handles, on slim black legs
       const legs = it.legs !== false, lg = legs ? Math.min(0.14, h * 0.2) : 0, n = Math.max(1, it.doors || Math.round(w / 0.45)), wood = M(it.color, 'wood'), blk = M(0x1a1a1a, 'steel');
