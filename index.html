@@ -3946,15 +3946,15 @@ span.axv-name { cursor: default; }
       return true;
     }
     function load() {
-      Promise.all([sb.from('flats').select('id,name,plan,layout,owner').order('updated_at'), sb.from('flat_shares').select('flat_id,email,can_edit')]).then(rs => {
+      Promise.all([sb.from('flats').select('id,name,plan,layout,owner').order('updated_at'), sb.from('flat_shares').select('*')]).then(rs => {
         const r = rs[0], sh = rs[1], me = (user.email || '').toLowerCase();
         if (r.error) { ui('Wohnungen konnten nicht geladen werden: ' + r.error.message); return; }
         Object.keys(APTS).forEach(k => delete APTS[k]); Object.keys(level).forEach(k => delete level[k]); Object.keys(shares).forEach(k => delete shares[k]);
         r.data.forEach(f => { level[f.id] = f.owner === user.id ? 'owner' : 'view'; });
-        ((sh && sh.data) || []).forEach(x => {
-          if (level[x.flat_id] === 'owner') (shares[x.flat_id] = shares[x.flat_id] || []).push({ email: x.email, can_edit: x.can_edit });
-          else if (x.email === me && x.can_edit) level[x.flat_id] = 'edit';
-        });
+        // my own shares first: a co-owner share (is_admin) gives the same rights as owning the flat
+        const rows = (sh && sh.data) || [];
+        rows.forEach(x => { if (x.email === me && level[x.flat_id] !== 'owner') { if (x.is_admin === true) level[x.flat_id] = 'owner'; else if (x.can_edit) level[x.flat_id] = 'edit'; } });
+        rows.forEach(x => { if (level[x.flat_id] === 'owner') (shares[x.flat_id] = shares[x.flat_id] || []).push({ email: x.email, can_edit: x.can_edit, is_admin: x.is_admin === true }); });
         let bad = 0;
         r.data.forEach(f => { try { if (!reg(f)) bad++; } catch (e) { bad++; delete APTS[f.id]; delete S.data[f.id]; } });
         // a flat whose plan cannot be built (damaged data from another account) is left out instead of blocking the others
@@ -4116,12 +4116,18 @@ span.axv-name { cursor: default; }
           emit('account');
         });
       },
-      shares: id => (shares[id] || []).map(x => ({ email: x.email, canEdit: !!x.can_edit })),
+      shares: id => (shares[id] || []).map(x => ({ email: x.email, canEdit: !!x.can_edit, admin: x.is_admin === true })),
       share(id, email, canEdit) {
         const mail = String(email || '').trim().toLowerCase(); if (!/^\S+@\S+\.\S+$/.test(mail)) return Promise.reject(new Error('Bitte eine gültige E-Mail-Adresse eingeben.'));
-        return sb.from('flat_shares').upsert({ flat_id: id, email: mail, can_edit: !!canEdit }).then(q => {
+        const admin = canEdit === 'admin';      // co-owner: may do everything the owner may
+        const noCol = q => q.error && /is_admin|PGRST204|42703/.test((q.error.code || '') + ' ' + (q.error.message || ''));
+        return sb.from('flat_shares').upsert({ flat_id: id, email: mail, can_edit: !!canEdit, is_admin: admin }).then(q => {
+          // a project where the co-owner column does not exist yet: ordinary shares still work
+          if (noCol(q)) { if (admin) throw new Error('Mitbesitzer sind noch nicht eingerichtet. Das muss der Betreiber der App einmal freischalten.'); return sb.from('flat_shares').upsert({ flat_id: id, email: mail, can_edit: !!canEdit }); }
+          return q;
+        }).then(q => {
           fail(q, 'Teilen hat nicht geklappt');
-          shares[id] = (shares[id] || []).filter(o => o.email !== mail).concat([{ email: mail, can_edit: !!canEdit }]); emit('account');
+          shares[id] = (shares[id] || []).filter(o => o.email !== mail).concat([{ email: mail, can_edit: !!canEdit, is_admin: admin }]); emit('account');
         });
       },
       setPassword(pw) {
@@ -5015,14 +5021,14 @@ span.axv-name { cursor: default; }
         if (!x || !x.email) return;
         var li = el('li', 'ax-card axa-share');
         li.appendChild(el('span', 'axa-name', String(x.email)));
-        li.appendChild(el('span', 'ax-badge', x.canEdit ? 'darf Möbel ändern' : 'nur ansehen'));
+        li.appendChild(el('span', 'ax-badge', x.admin ? 'Mitbesitzer' : x.canEdit ? 'darf Möbel ändern' : 'nur ansehen'));
         var b = btn('Entfernen', 'small danger', function () { run(A.unshare(id, x.email)); }); b.disabled = busy; b.setAttribute('aria-label', 'Freigabe für ' + x.email + ' entfernen');
         li.appendChild(b); list.appendChild(li);
       });
     }
     body.appendChild(el('div', 'ax-h', 'Geteilt mit')); body.appendChild(list);
     body.appendChild(el('div', 'ax-h', 'Jemanden hinzufügen')); body.appendChild(lab);
-    body.appendChild(choice('Was darf die Person?', [[false, 'nur ansehen'], [true, 'darf Möbel ändern']], function () { return canEdit; }, function (v) { canEdit = v; }));
+    body.appendChild(choice('Was darf die Person?', [[false, 'nur ansehen'], [true, 'darf Möbel ändern'], ['admin', 'Mitbesitzer: darf alles']], function () { return canEdit; }, function (v) { canEdit = v; }));
     var row = el('div', 'ax-row'); row.appendChild(go);
     var act = el('div', 'axa-act'); act.appendChild(row); act.appendChild(done); act.appendChild(invBtn); act.appendChild(copyBtn); body.appendChild(act); body.appendChild(err);
     body.appendChild(p('Die Person sieht die Wohnung, sobald sie sich mit genau dieser E-Mail-Adresse anmeldet.', 'ax-muted'));
