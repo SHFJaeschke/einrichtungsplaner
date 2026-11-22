@@ -3624,7 +3624,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
           if (d && d.ro && level[f.id] === 'view' && (d.t || 0) >= lt) return;
           S.data[f.id] = { P: inc.P, items: inc.items, rev: APTS[f.id].rev, t: lt }; fixItems(S.data[f.id].items);
           last[f.id] = seen[f.id] = strip(S.data[f.id]); saveLocal();
-          if (f.id === S.apt) { cur = ensure(f.id); renderFields(); select(null); buildApartment(); rebuildAll(); if (RV.on) RV.aptChanged(); }
+          if (f.id === S.apt) { cur = ensure(f.id); renderFields(); select(null); buildApartment(); rebuildAll(); if (RV.on) RV.aptChanged(); emit('remote'); }
         });
       }, () => {});
     }
@@ -3661,14 +3661,16 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
         const err = planError(plan); if (err) return Promise.reject(new Error(err));
         if (!APTS[id] || level[id] !== 'owner') return Promise.reject(new Error('Nur der Besitzer kann den Grundriss ändern.'));
         const clean = JSON.parse(JSON.stringify(plan));
-        return sb.from('flats').update({ plan: clean }).eq('id', id).select('id').then(q => {
+        // plan and rescaled furniture go in ONE request, so they can never disagree in the account
+        const d0 = S.data[id], t = Date.now(), f = opts && typeof opts.scaleItems === 'number' && isFinite(opts.scaleItems) && opts.scaleItems > 0.01 && opts.scaleItems < 100 ? opts.scaleItems : 1;
+        const scaled = d0 && Array.isArray(d0.items) && f !== 1 ? d0.items.map(it => Object.assign({}, it, { x: +(it.x * f).toFixed(3), z: +(it.z * f).toFixed(3) })) : null;
+        return sb.from('flats').update(scaled ? { plan: clean, layout: { P: d0.P, items: scaled, t: t } } : { plan: clean }).eq('id', id).select('id').then(q => {
           fail(q, 'Der Grundriss konnte nicht gespeichert werden'); if (!q.data.length) throw new Error('Nur der Besitzer kann den Grundriss ändern.');
-          const f = opts && typeof opts.scaleItems === 'number' && isFinite(opts.scaleItems) && opts.scaleItems > 0.01 && opts.scaleItems < 100 ? opts.scaleItems : 1, d = S.data[id];
           APTS[id] = aptFromPlan(clean, names[id] || clean.title);
-          if (d && Array.isArray(d.items) && f !== 1) { d.items.forEach(it => { it.x = +(it.x * f).toFixed(3); it.z = +(it.z * f).toFixed(3); }); d.t = Date.now(); }
+          const d = S.data[id]; if (scaled && d) { d.items = scaled; d.t = t; delete d.ro; last[id] = seen[id] = strip(d); }
           refreshAptSel();
           if (S.apt === id) showApt(id, true); else saveLocal();
-          if (f !== 1) setTimeout(() => push(id), 0);
+          if (scaled && S.apt === id) emit('remote');       // furniture changed from outside the person's own edits: undo history starts afresh
           emit('account');
         });
       },
@@ -3714,7 +3716,12 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       },
       level: id => level[id] || (id === 'demo' ? 'demo' : 'view'),
       deleteFlat(id) {
-        return sb.from('flats').delete().eq('id', id).select('id').then(q => {
+        if (level[id] !== 'owner') return Promise.reject(new Error('Nur der Besitzer kann die Wohnung löschen.'));
+        // the picture files first: the rows vanish with the flat, the files would stay behind
+        return sb.from('flat_images').select('path').eq('flat_id', id).then(r => {
+          const paths = ((r && r.data) || []).map(x => x.path);
+          return paths.length ? sb.storage.from('ideas').remove(paths).then(() => {}, () => {}) : null;
+        }, () => null).then(() => sb.from('flats').delete().eq('id', id).select('id')).then(q => {
           fail(q, 'Löschen hat nicht geklappt'); if (!q.data.length) throw new Error('Nur der Besitzer kann die Wohnung löschen.');
           delete APTS[id]; delete S.data[id]; delete level[id]; delete shares[id]; delete names[id];
           if (!Object.keys(APTS).length) APTS.demo = aptFromPlan(DEMO_PLAN, 'Beispielwohnung');
@@ -4299,11 +4306,13 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     }
     lastSnap = s; undoing = false; undoBtn.disabled = !hist.length;
   }
-  function undo() { if (!hist.length) return; undoing = true; var s = hist.pop(); lastSnap = s; P.setItems(JSON.parse(s)); undoBtn.disabled = !hist.length; }
+  function undo() { clearTimeout(snapTimer); snap(); if (!hist.length) return; undoing = true; var s = hist.pop(); lastSnap = s; P.setItems(JSON.parse(s)); undoBtn.disabled = !hist.length; }
   undoBtn.addEventListener('click', undo);
   P.on('items', function () { clearTimeout(snapTimer); snapTimer = setTimeout(snap, 300); });
   P.on('flat', function () { clearTimeout(snapTimer); snap(); });
   try { snap(); } catch (e) {}      // baseline for the flat already on screen
+  // furniture that arrived from someone else (or was rescaled with the plan) must not be undone into an older state
+  P.on('remote', function () { clearTimeout(snapTimer); hist = []; lastSnap = JSON.stringify(P.items()); undoing = false; undoBtn.disabled = true; });
   window.addEventListener('keydown', function (e) {
     if (!(e.ctrlKey || e.metaKey) || e.shiftKey || (e.key !== 'z' && e.key !== 'Z')) return;
     if (document.querySelector('.ax-scrim, .axp-overlay') || (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]'))) return;
@@ -4506,7 +4515,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     var done = p('', 'axa-done'), copyBtn = btn('Link kopieren', 'small', copyLink), lastAdr = '';
     var invBtn = btn('Einladung per E-Mail senden', 'small', function () {
       if (!lastAdr || !A.invite) return; var adr = lastAdr; invBtn.disabled = true;
-      A.invite(id, adr).then(function () { done.textContent = 'Einladung an «' + adr + '» ist unterwegs. Sie enthält den Anmelde-Link.'; invBtn.hidden = true; invBtn.disabled = false; },
+      A.invite(id, adr).then(function () { done.textContent = 'Anmelde-Link an «' + adr + '» gesendet. Nach dem Anmelden sieht die Person die Wohnung.'; invBtn.hidden = true; invBtn.disabled = false; },
         function (e) { invBtn.disabled = false; fail(e); });
     });
     done.setAttribute('role', 'status'); copyBtn.classList.add('axa-copy'); copyBtn.hidden = true; invBtn.classList.add('axa-copy'); invBtn.hidden = true;
