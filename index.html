@@ -1271,7 +1271,7 @@ span.axv-name { cursor: default; }
     { type: 'rtable', name: 'Esstisch Montville rund (home24)', w: 1.2, d: 1.2, h: 0.75, color: '#c89b5e' },
     { type: 'ctable', name: 'Esstisch Taylor rund Eiche (home24)', w: 1.2, d: 1.2, h: 0.76, color: '#cfa46c' },
     { type: 'ctable', name: 'Esstisch Qara rund Esche schwarz (home24)', w: 1.2, d: 1.2, h: 0.76, color: '#232323' },
-    { type: 'otable', name: 'Esstisch Olson rund Walnuss (home24)', w: 1.2, d: 1.2, h: 0.75, color: '#a05c36' },
+    { type: 'otable', name: 'Esstisch Olson rund Walnuss (home24)', w: 1.2, d: 1.2, h: 0.75, color: '#7a5240' },
     { type: 'mchair', name: 'Armlehnstuhl Mesita (home24)', w: 0.56, d: 0.54, h: 0.76, color: '#d0c2b7' },
     { type: 'atable', name: 'Esstisch Nussbaum 200', w: 2.0, d: 0.95, h: 0.75, color: '#7a5236' },
     { type: 'achair', name: 'Armlehnstuhl Alison (Westwing)', w: 0.58, d: 0.59, h: 0.89, color: '#8d8578' },
@@ -2031,7 +2031,7 @@ span.axv-name { cursor: default; }
   function fixItems(items) {
     let ch = false;
     (items || []).forEach(it => {
-      if (it.type === 'otable' && it.color === '#6a4c3a') { it.color = '#a05c36'; ch = true; }
+      if (it.type === 'otable' && (it.color === '#6a4c3a' || it.color === '#a05c36')) { it.color = '#7a5240'; ch = true; }   // darker walnut, after the product photos
       if (it.type === 'mchair' && it.color === '#c9c1b5') { it.color = '#d0c2b7'; ch = true; }
       if (it.type === 'vino' && it.color === '#a8743f') { it.color = '#c98f4c'; ch = true; }
       if (it.type === 'ovo' && it.mainD === 1) { it.mainD = 0.83; ch = true; }
