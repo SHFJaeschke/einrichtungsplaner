@@ -128,27 +128,28 @@ button.link:disabled { opacity: .55; cursor: default; }
   function showSignIn(note) {
     shownFor = 'signin';
     var add = screen();
-    add(el('p', 'sub', 'Melde dich zuerst mit deiner E-Mail-Adresse an. Du bekommst einen Link zugeschickt, ein Passwort brauchst du nicht.'));
+    add(el('p', 'sub', 'Melde dich zuerst mit der E-Mail-Adresse und dem Passwort deines Einrichtungsplaner-Kontos an.'));
     var l = el('label', 'f', 'E-Mail'), inp = el('input'); inp.type = 'email'; inp.autocomplete = 'email'; inp.inputMode = 'email';
     l.appendChild(inp); add(l);
-    var b = add(el('button', 'act primary', 'Anmelde-Link senden')); b.type = 'button';
+    var l2 = el('label', 'f', 'Passwort'), pw = el('input'); pw.type = 'password'; pw.autocomplete = 'current-password';
+    l2.appendChild(pw); add(l2);
+    var b = add(el('button', 'act primary', 'Anmelden')); b.type = 'button';
     var m = add(el('p', 'sub', note || ''));
-    add(el('p', 'sub', 'Wichtig: Öffne den Link aus der E-Mail in diesem Browser auf diesem Gerät. Sonst kann die Verbindung nicht abgeschlossen werden.'));
+    add(el('p', 'sub', 'Noch kein Passwort? Öffne den Einrichtungsplaner, melde dich an und setz unter «Einstellungen» eines.'));
     function send() {
       if (b.disabled) return;
       var mail = inp.value.trim();
       if (!/^\S+@\S+\.\S+$/.test(mail)) { m.className = 'err'; m.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben.'; return; }
-      b.disabled = true; m.className = 'sub'; m.textContent = 'Sende …';
-      // back to exactly this page, with the same authorization_id
-      var back = location.origin + location.pathname + '?authorization_id=' + encodeURIComponent(authId);
-      sb.auth.signInWithOtp({ email: mail, options: { emailRedirectTo: back } }).then(function (r) {
+      if (!pw.value) { m.className = 'err'; m.textContent = 'Bitte das Passwort eingeben.'; return; }
+      b.disabled = true; m.className = 'sub'; m.textContent = 'Melde an …';
+      sb.auth.signInWithPassword({ email: mail, password: pw.value }).then(function (r) {
         b.disabled = false;
-        if (r.error) { m.className = 'err'; m.textContent = 'Das hat nicht geklappt: ' + errText(r.error); }
-        else { m.className = 'sub'; m.textContent = 'Link gesendet. Öffne die E-Mail und klicke auf den Link, in diesem Browser. Diese Seite geht danach von selbst weiter.'; }
+        if (r.error) { m.className = 'err'; m.textContent = /invalid login/i.test(errText(r.error)) ? 'E-Mail-Adresse oder Passwort stimmen nicht.' : 'Das hat nicht geklappt: ' + errText(r.error); }
+        else { m.className = 'sub'; m.textContent = ''; }      // the session event shows the next screen
       }, function (e) { b.disabled = false; m.className = 'err'; m.textContent = 'Das hat nicht geklappt: ' + errText(e); });
     }
     b.addEventListener('click', send);
-    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
+    [inp, pw].forEach(function (x) { x.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); }); });
   }
 
   function hostOf(uri) {       // where the person is sent back to, in plain words

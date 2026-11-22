@@ -3581,18 +3581,44 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
         card.appendChild(el('p', 'sub', 'Deine Wohnung in 3D einrichten: Möbel stellen, Abstände prüfen, mit anderen teilen.'));
         if (!sb) { card.appendChild(el('p', 'sub', 'Die Anmeldung ist gerade nicht erreichbar. Bitte lade die Seite später neu.')); return; }
         if (!ready) { card.appendChild(el('p', 'sub', 'Lade …')); return; }
-        card.appendChild(el('p', 'sub', 'Melde dich mit deiner E-Mail-Adresse an. Du bekommst einen Link zugeschickt, ein Passwort brauchst du nicht.'));
-        if (/[?&]wohnung=/.test(location.search)) card.appendChild(el('p', 'note', 'Du wurdest zu einer Wohnung eingeladen. Melde dich mit der Adresse an, an die die Einladung ging.'));
+        // Sign-in with e-mail and password: no e-mail is ever sent (the project has no mail service of its own).
+        card.appendChild(el('p', 'sub', 'Melde dich mit E-Mail-Adresse und Passwort an. Neu hier? Wähle ein Passwort und klick auf «Konto anlegen».'));
+        if (/[?&]wohnung=/.test(location.search)) card.appendChild(el('p', 'note', 'Jemand hat eine Wohnung mit dir geteilt. Nimm genau die E-Mail-Adresse, an die sie freigegeben wurde.'));
         const l = el('label', 'f', 'E-Mail'), inp = el('input'); inp.type = 'email'; inp.autocomplete = 'email'; l.appendChild(inp); card.appendChild(l);
-        const b = el('button', 'act primary', 'Anmelde-Link senden'), m = el('p', 'sub', msg || ''); m.setAttribute('role', 'status'); card.appendChild(b); card.appendChild(m);
-        const send = () => {
-          const mail = inp.value.trim(); if (!/^\S+@\S+\.\S+$/.test(mail)) { m.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben.'; return; }
-          b.disabled = true; m.textContent = 'Sende …';
-          sb.auth.signInWithOtp({ email: mail, options: { emailRedirectTo: location.origin + location.pathname } }).then(r => {
-            b.disabled = false; m.textContent = r.error ? 'Der Link konnte nicht gesendet werden. Warte eine Minute und versuche es nochmals.' : 'Link gesendet. Öffne die E-Mail auf diesem Gerät und klicke auf den Link. Nichts gekommen? Schau im Spam-Ordner nach.';
-          }, () => { b.disabled = false; m.textContent = 'Das hat nicht geklappt. Bitte versuche es nochmals.'; });
+        const l2 = el('label', 'f', 'Passwort (mindestens 8 Zeichen)'), pw = el('input'); pw.type = 'password'; pw.autocomplete = 'current-password'; l2.appendChild(pw); card.appendChild(l2);
+        const b = el('button', 'act primary', 'Anmelden'), b2 = el('button', 'act', 'Konto anlegen'), m = el('p', 'sub', msg || ''); m.setAttribute('role', 'status');
+        card.appendChild(b); card.appendChild(b2); card.appendChild(m);
+        const b3 = el('button', 'act', 'Konto ohne Passwort? Anmelde-Link per E-Mail'); b3.style.cssText = 'border:0;background:none;padding:0;text-decoration:underline;font-size:12px;opacity:.75;text-align:left'; card.appendChild(b3);
+        const busy = on => { b.disabled = b2.disabled = b3.disabled = on; };
+        const creds = needPw => {
+          const mail = inp.value.trim(); if (!/^\S+@\S+\.\S+$/.test(mail)) { m.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben.'; inp.focus(); return null; }
+          if (needPw && pw.value.length < 8) { m.textContent = 'Das Passwort braucht mindestens 8 Zeichen.'; pw.focus(); return null; }
+          return { email: mail, password: pw.value };
         };
-        b.addEventListener('click', send); inp.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+        const oops = () => { busy(false); m.textContent = 'Das hat nicht geklappt. Prüfe deine Internetverbindung und versuche es nochmals.'; };
+        const send = () => {
+          const c = creds(true); if (!c) return; busy(true); m.textContent = 'Melde an …';
+          sb.auth.signInWithPassword(c).then(r => {
+            busy(false); if (!r.error) return;      // success: the session event closes this screen
+            m.textContent = /invalid login/i.test(r.error.message || '') ? 'E-Mail-Adresse oder Passwort stimmen nicht. Noch kein Konto? Klick auf «Konto anlegen».' : 'Die Anmeldung hat nicht geklappt. Versuche es in einer Minute nochmals.';
+          }, oops);
+        };
+        const create = () => {
+          const c = creds(true); if (!c) return; busy(true); m.textContent = 'Lege das Konto an …';
+          sb.auth.signUp(c).then(r => {
+            busy(false);
+            if (r.error) { m.textContent = /registered|exists/i.test(r.error.message || '') ? 'Für diese Adresse gibt es schon ein Konto. Klick auf «Anmelden».' : /password/i.test(r.error.message || '') ? 'Dieses Passwort wird nicht angenommen. Wähle ein längeres.' : 'Das Konto konnte nicht angelegt werden. Versuche es in einer Minute nochmals.'; return; }
+            if (!(r.data && r.data.session)) m.textContent = 'Für diese Adresse gibt es vermutlich schon ein Konto. Klick auf «Anmelden». Hast du dort noch kein Passwort, nimm den Anmelde-Link unten.';
+          }, oops);
+        };
+        const link = () => {
+          const c = creds(false); if (!c) return; busy(true); m.textContent = 'Sende …';
+          sb.auth.signInWithOtp({ email: c.email, options: { emailRedirectTo: location.origin + location.pathname, shouldCreateUser: false } }).then(r => {
+            busy(false); m.textContent = r.error ? 'Der Link konnte nicht gesendet werden. Das geht nur für Konten, die es schon gibt, und nur wenige Male pro Stunde.' : 'Link gesendet. Öffne die E-Mail auf diesem Gerät. Setz danach unter «Einstellungen» ein Passwort.';
+          }, oops);
+        };
+        b.addEventListener('click', send); b2.addEventListener('click', create); b3.addEventListener('click', link);
+        [inp, pw].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') send(); }));
         return;
       }
     }
@@ -3791,18 +3817,10 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
           shares[id] = (shares[id] || []).filter(o => o.email !== mail).concat([{ email: mail, can_edit: !!canEdit }]); emit('account');
         });
       },
-      // Sends the invited person a sign-in link by e-mail; the mail template shows who invited them to which flat.
-      invite(id, email) {
-        const mail = String(email || '').trim().toLowerCase(); if (!/^\S+@\S+\.\S+$/.test(mail)) return Promise.reject(new Error('Bitte eine gültige E-Mail-Adresse eingeben.'));
-        if (level[id] !== 'owner') return Promise.reject(new Error('Nur der Besitzer kann einladen.'));
-        if (sb.__dev) return Promise.resolve();
-        const back = location.origin + location.pathname + '?wohnung=1';
-        // straight to the sign-in service, so the inviting person's own session is not touched
-        return fetch(BACKEND.url + '/auth/v1/otp?redirect_to=' + encodeURIComponent(back), {
-          method: 'POST', headers: { 'Content-Type': 'application/json', apikey: BACKEND.key },
-          body: JSON.stringify({ email: mail, create_user: true, data: { invited_by: user.email || '', invited_flat: names[id] || '' } })
-        }).then(r => { if (!r.ok) throw new Error('Die Einladung konnte nicht gesendet werden. Es gehen nur wenige E-Mails pro Stunde raus: Versuche es später nochmals oder schick den Link selbst.'); },
-          () => { throw new Error('Die Einladung konnte nicht gesendet werden. Prüfe deine Internetverbindung.'); });
+      setPassword(pw) {
+        if (typeof pw !== 'string' || pw.length < 8) return Promise.reject(new Error('Das Passwort braucht mindestens 8 Zeichen.'));
+        if (!sb.auth.updateUser) return Promise.resolve();
+        return sb.auth.updateUser({ password: pw }).then(r => { if (r && r.error) throw new Error(/same|different/i.test(r.error.message || '') ? 'Das ist schon dein Passwort.' : 'Das Passwort konnte nicht gespeichert werden. Melde dich neu an und versuche es nochmals.'); });
       },
       unshare(id, email) {
         return sb.from('flat_shares').delete().eq('flat_id', id).eq('email', email).then(q => {
@@ -4611,7 +4629,7 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     var mail = el('input', 'ax-input'); mail.type = 'email'; mail.autocomplete = 'off'; mail.placeholder = 'name@beispiel.ch';
     var lab = el('label', 'ax-label', 'E-Mail-Adresse der Person'); lab.appendChild(mail);
     var canEdit = false, go = btn('Freigeben', 'primary', submit);
-    function submit() { if (busy) return; if (!mail.value.trim()) { mail.focus(); return; } var adr = mail.value.trim(); run(A.share(id, mail.value, canEdit), function () { mail.value = ''; lastAdr = adr.toLowerCase(); said('«' + adr + '» ist freigegeben. Schick eine Einladung per E-Mail oder gib den Link selbst weiter.'); }); }
+    function submit() { if (busy) return; if (!mail.value.trim()) { mail.focus(); return; } var adr = mail.value.trim(); run(A.share(id, mail.value, canEdit), function () { mail.value = ''; lastAdr = adr.toLowerCase(); said('«' + adr + '» ist freigegeben. Schick der Person den Link. Sie legt mit genau dieser Adresse ein Konto an.'); }); }
     mail.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
     mail.addEventListener('input', function () { if (!busy) fail(null); });
     function draw() {
@@ -4660,6 +4678,16 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
     body.appendChild(choice('Farbschema', [['', 'System'], ['light', 'Hell'], ['dark', 'Dunkel']], theme0, setTheme));
     body.appendChild(el('div', 'ax-h', 'Konto'));
     body.appendChild(p(u && u.email ? 'Angemeldet als ' + u.email : 'Angemeldet', 'axa-name'));
+    if (A.setPassword) {
+      var pwl = el('label', 'ax-label', 'Neues Passwort (mindestens 8 Zeichen)'), pwi = el('input', 'ax-input'), pwm = p('', 'ax-muted');
+      pwi.type = 'password'; pwi.autocomplete = 'new-password'; pwl.appendChild(pwi); pwm.setAttribute('role', 'status');
+      var pwb = btn('Passwort speichern', 'small', function () {
+        pwb.disabled = true; pwm.textContent = '';
+        A.setPassword(pwi.value).then(function () { pwb.disabled = false; pwi.value = ''; pwm.textContent = 'Passwort gespeichert. Damit meldest du dich künftig an.'; },
+          function (e) { pwb.disabled = false; pwm.textContent = (e && e.message) || 'Das hat nicht geklappt.'; });
+      });
+      body.appendChild(pwl); body.appendChild(pwb); body.appendChild(pwm);
+    }
     dialog({ title: 'Einstellungen', body: body, actions: [{ label: 'Schliessen', onClick: function (m) { m.close(); } }] });
   }
   // what is actually applied (also correct when the browser refuses to remember it)
