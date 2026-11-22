@@ -329,6 +329,9 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
 .axi-op { margin: 0; font-size: 13px; line-height: 1.4; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); overflow-wrap: anywhere; }
 .axi-bad { color: var(--warn-fg); background: var(--warn-bg); border-color: transparent; }
 .axi-note { margin: 0; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.axi-steps { margin: 6px 0; padding-left: 20px; font-size: 13px; line-height: 1.45; display: flex; flex-direction: column; gap: 4px; }
+.axi-details .ax-row { margin-top: 6px; }
+.axi-details .ax-row .ax-input { flex: 1; min-width: 0; font-size: 12px; }
 
 /* Floor-plan editor ("Grundriss anpassen"). Every class is prefixed axp-; colours come from the page's tokens. */
 .axp-entry { gap: 6px; }
@@ -3908,6 +3911,24 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
       });
       st.appendChild(del);
     }
+    // A variant from a file: { "name": "...", "items": [...] } (for example a design made outside the app). It is added
+    // next to the others; the arrangement on screen stays as it is.
+    const fi = document.createElement('input'); fi.type = 'file'; fi.accept = '.json,application/json'; fi.style.display = 'none';
+    const fb = mk2('button', 'Variante aus Datei laden'); fb.className = 'act'; const fm = mk2('p', '', 'margin:0;font-size:12px'); fm.setAttribute('role', 'status');
+    fb.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => {
+      const f = fi.files && fi.files[0]; if (!f) return; fi.value = '';
+      if (f.size > 400000) { fm.textContent = 'Die Datei ist zu gross.'; return; }
+      if (cur.variants.length >= 11) { fm.textContent = 'Es gibt schon 12 Varianten. Lösche zuerst eine.'; return; }
+      f.text().then(t => {
+        let d = null; try { d = JSON.parse(t); } catch (e) {}
+        const its = okItems(Array.isArray(d) ? d : d && d.items).map(it => Object.assign({}, it, { id: uid() }));
+        if (!its.length) { fm.textContent = 'In dieser Datei ist keine Einrichtung.'; return; }
+        const name = String((d && typeof d.name === 'string' && d.name.trim()) || f.name.replace(/\.json$/i, '')).slice(0, 60);
+        cur.variants.push({ name, items: its }); fixItems(its); save(); varBuild();
+      }, () => { fm.textContent = 'Die Datei konnte nicht gelesen werden.'; });
+    });
+    st.appendChild(fi); st.appendChild(fb); st.appendChild(fm);
     st.appendChild(mk2('p', 'Eine Kopie ist ein eigener Stand derselben Wohnung. So probierst du etwas aus, ohne die bisherige Einrichtung zu verlieren.', 'margin:0;font-size:12px;opacity:.7'));
   }
   $('reset').parentNode.parentNode.insertBefore(varRow, $('reset').parentNode);
@@ -5520,10 +5541,25 @@ body.ax .hint:not(.rvstatus) { right: 64px; max-width: none; width: fit-content;
   // ---- interface
   var intro = el('div', 'ax-stack');
   intro.appendChild(el('h3', 'ax-h', 'Mit deinem KI-Assistenten einrichten'));
-  intro.appendChild(el('p', 'axi-text', 'Der Planer hat keine eigene KI und verbraucht kein KI-Guthaben, weder deines noch das von jemand anderem. Du arbeitest mit deinem eigenen Assistenten (Claude, ChatGPT oder Gemini, mit deinem normalen Konto): Auftrag hier kopieren, dort einfügen, Antwort hier wieder einfügen. Der Planer zeigt dir dann genau, was sich ändern würde, bevor etwas übernommen wird.'));
-  var det = el('details', 'axi-details');
-  det.appendChild(el('summary', '', 'Geht das auch direkt verbunden?'));
-  det.appendChild(el('p', 'ax-muted', 'Noch nicht. Eine direkte Verbindung, bei der dein Assistent selbst auf den Planer zugreift (über einen sogenannten Connector) oder bei der du einen eigenen Schlüssel deines KI-Anbieters hinterlegst, ist noch nicht eingebaut. Bis dahin ist Kopieren und Einfügen der Weg, und er kostet dich nichts zusätzlich.'));
+  intro.appendChild(el('p', 'axi-text', 'Der Planer hat keine eigene KI. Du arbeitest mit deinem eigenen Assistenten, auf zwei Arten: Du verbindest Claude direkt mit dem Planer (siehe unten), oder du kopierst hier einen Auftrag, fügst ihn bei Claude, ChatGPT oder Gemini ein und fügst die Antwort hier wieder ein. Beim Kopieren zeigt dir der Planer genau, was sich ändern würde, bevor etwas übernommen wird.'));
+  // Direct connection: the assistant works in the flat itself through the planner's connector (MCP server)
+  var det = el('details', 'axi-details'), mcp = ((window.PLANNER_BACKEND || {}).url || '') + '/functions/v1/mcp';
+  det.appendChild(el('summary', '', 'Direkt verbinden: Claude arbeitet selbst in deiner Wohnung'));
+  det.appendChild(el('p', 'ax-muted', 'Mit dem Connector liest Claude deine Wohnungen selbst, verschiebt Möbel, stellt neue hin oder entfernt sie und sieht deine Ideen-Bilder. Kopieren und Einfügen entfällt. Du brauchst dafür ein Claude-Konto; einmal einrichten genügt.'));
+  var ol = el('ol', 'axi-steps');
+  ['Öffne in Claude die Einstellungen und geh zu «Connectors».',
+    'Wähle «Add custom connector» (eigenen Connector hinzufügen). Name: Einrichtungsplaner.',
+    'Füge als Adresse die Connector-Adresse von unten ein und bestätige.',
+    'Es öffnet sich die Seite «Einrichtungsplaner verbinden». Melde dich mit E-Mail und Passwort deines Planer-Kontos an und klick auf «Erlauben».',
+    'Schalte den Connector in einem neuen Chat ein und frag zum Beispiel: «Liste meine Wohnungen im Einrichtungsplaner.»'
+  ].forEach(function (t) { ol.appendChild(el('li', '', t)); });
+  det.appendChild(ol);
+  var adr = el('input', 'ax-input'); adr.readOnly = true; adr.value = mcp; adr.setAttribute('aria-label', 'Connector-Adresse');
+  adr.addEventListener('focus', function () { adr.select(); });
+  var cp = UI.el('button', 'ax-btn small', 'Adresse kopieren'); cp.type = 'button';
+  cp.addEventListener('click', function () { UI.copy(mcp).then(function (ok) { UI.toast(ok ? 'Adresse kopiert.' : 'Kopieren hat nicht geklappt. Markiere die Adresse und kopiere sie von Hand.'); }, function () {}); });
+  var rowc = el('div', 'ax-row'); rowc.appendChild(adr); rowc.appendChild(cp); det.appendChild(rowc);
+  det.appendChild(el('p', 'ax-muted', 'Claude sieht dabei nur deine Wohnungen im Planer und die, die mit dir geteilt sind. Die Verbindung trennst du jederzeit in den Connector-Einstellungen von Claude. Änderungen von Claude erscheinen in der App nach kurzem Warten oder nach dem Neuladen. Andere Assistenten, die eigene Connectors (MCP) unterstützen, lassen sich mit derselben Adresse verbinden; getestet ist es mit Claude.'));
   intro.appendChild(det);
   pane.appendChild(intro);
 
